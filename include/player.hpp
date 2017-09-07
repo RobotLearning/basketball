@@ -12,6 +12,7 @@
 
 #include "kalman.h"
 #include "optim.h"
+#include "kinematics.h"
 
 using namespace arma;
 
@@ -41,6 +42,7 @@ struct player_flags {
 	double var_model = 0.001; //!< variance of process noise (Q)
 	double t_reset_thresh = 0.3; //!< resetting Kalman filter after this many seconds pass without getting valid obs.
 	vec3 ball_des = zeros<vec>(3); // desired ball position
+	ivec active_dofs = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
 };
 
 /**
@@ -104,18 +106,15 @@ void estimate_ball_linear(const mat & observations,
 					      const bool verbose,
 					      vec6 & init_est);
 bool check_new_obs(const vec3 & obs, double tol);
-bool check_reset_filter(const bool newball, const int verbose, const double threshold);
 void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
+vec calc_next_ball(const vec & xnow, const double dt, const void *fp);
+bool check_reset_filter(const bool newball, const int verbose, const double threshold);
+bool check_new_obs(const vec3 & obs, double tol);
 
 // movement generation
-void generate_strike(const vec7 & qf, const vec7 & qfdot, const double T, const joint & qact,
-		             const vec7 & q_rest_des, const double time2return,
-		            mat & Q, mat & Qd, mat & Qdd);
 bool update_next_state(const spline_params & poly,
 		           const vec7 & q_rest_des,
 				   const double time2return, double & t_poly, joint & qdes);
-void gen_3rd_poly(const rowvec & times, const vec7 & a3, const vec7 & a2, const vec7 & a1, const vec7 & a0,
-		     mat & Q, mat & Qd, mat & Qdd);
 void set_bounds(double *lb, double *ub, double SLACK, double Tmax);
 
 

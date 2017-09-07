@@ -13,7 +13,7 @@
 /**
  * @file player.cpp
  *
- * @brief Table Tennis player class and the functions it uses are stored here.
+ * @brief Player class and the functions it uses are stored here.
  *
  * Player class launches 3 different optimization algorithms
  * for striking trajectory generation.
@@ -30,16 +30,13 @@
 #include "constants.h"
 #include "kalman.h"
 #include "optim.h"
+#include "kinematics.h"
 
 using namespace arma;
 
 /**
- * @brief Initialize Table Tennis Player.
+ * @brief Initialize Player.
  *
- * Table Tennis Player class that can run 3 different trajectory
- * generation algorithms.
- * VHP and FP try to return the ball to the centre of the opponents court,
- * LP tries to just return the ball to the opponents court.
  *
  * @param q0 Initial joint positions.
  * @param filter_ Reference to an input filter (must be initialized in a separate line).
@@ -171,10 +168,10 @@ vec6 Player::filt_ball_state(const vec3 & obs) {
 }
 
 /**
- * @brief Play Table Tennis.
+ * @brief Play the game.
  *
- * Main function for playing Table Tennis. Calls one of three different
- * trajectory generation algorithms (depending on initialization) and
+ * Main function for playing a game. Calls one of the optimization
+ * algorithms (depending on initialization) and
  * updates the desired joint states when the optimization threads have finished.
  *
  * @param qact Actual joint positions, velocities, accelerations.
@@ -194,7 +191,7 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 
 /**
- * @brief Cheat Table Tennis by getting the exact ball state in simulation.
+ * @brief Cheat by getting the exact ball state in simulation.
  *
  * Similar to play() method, this method receives from the simulator the
  * exact ball states, which bypasses then the ball estimation method.
@@ -236,10 +233,6 @@ void Player::optim_param(const joint & qact) {
 		opt->set_des_params(&pred_params);
 		opt->update_init_state(qact);
 		opt->run();
-		}
-		else {
-			//cout << "Ball is not legal!\n";
-		}
 	}
 }
 
@@ -280,9 +273,8 @@ bool Player::check_update(const joint & qact) const {
 		if (pflags.mpc) {// && t_poly > 0.0) {
 			activate = (!pflags.detach) ? counter % 5 == 0 :
 					                        timer.toc() > (1.0/pflags.freq_mpc);
-			passed_lim = state_est(Y) > pos(Y);
 			incoming = state_est(Y) > state_last(Y);
-			update = update && valid_obs && activate && feasible && !passed_lim && incoming;
+			update = update && valid_obs && activate && feasible && incoming;
 		}
 		else {
 			update = update && (t_poly == 0.0) && feasible; // only once
@@ -395,4 +387,165 @@ void estimate_ball_linear(const mat & observations,
 		cout << "Data:\n" << observations.t() << endl;
 		cout << "Initial est:" << init_est.t() << endl;
 	}
+}
+
+/**
+ * @brief Generate strike and return traj. incrementally
+ *
+ * Given polynomial parameters saved in poly,
+ * move on to the NEXT desired state only (joint pos,vel,acc).
+ * @param poly Polynomial parameters updated in OPTIM classes
+ * @param q_rest_des FIXED desired resting posture
+ * @param time2return FIXED time to return to rest posture after hit
+ * @param t The time passed already following trajectory
+ * @param qdes Update pos,vel,acc values of this desired joints structure
+ * @return
+ */
+bool update_next_state(const spline_params & poly,
+		           const vec7 & q_rest_des,
+				   const double time2return,
+				   double & t,
+				   joint & qdes) {
+	mat a,b;
+	double tbar;
+	bool flag = true;
+
+	if (t <= poly.time2hit) {
+		a = poly.a;
+		qdes.q = a.col(0)*t*t*t + a.col(1)*t*t + a.col(2)*t + a.col(3);
+		qdes.qd = 3*a.col(0)*t*t + 2*a.col(1)*t + a.col(2);
+		qdes.qdd = 6*a.col(0)*t + 2*a.col(1);
+		t += DT;
+		//cout << qdes.q << qdes.qd << qdes.qdd << endl;
+	}
+	else if (t <= poly.time2hit + time2return) {
+		b = poly.b;
+		tbar = t - poly.time2hit;
+		qdes.q = b.col(0)*tbar*tbar*tbar + b.col(1)*tbar*tbar + b.col(2)*tbar + b.col(3);
+		qdes.qd = 3*b.col(0)*tbar*tbar + 2*b.col(1)*tbar + b.col(2);
+		qdes.qdd = 6*b.col(0)*tbar + 2*b.col(1);
+		t += DT;
+	}
+	else {
+		//printf("Hitting finished!\n");
+		t = 0.0;
+		flag = false;
+		qdes.q = q_rest_des;
+		qdes.qd = zeros<vec>(NDOF);
+		qdes.qdd = zeros<vec>(NDOF);
+	}
+	return flag;
+}
+
+/**
+ * @brief Initialize an EKF
+ *
+ * Called generally when ball state needs to be reset
+ * Useful for passing to Player constructor.
+ * @param var_model Process noise multiplier for identity matrix.
+ * @param var_noise Observation noise mult. for identity matrix.
+ * @return EKF Extended Kalman Filter (state uninitialized!)
+ */
+EKF init_filter(const double var_model, const double var_noise) {
+
+	mat C = eye<mat>(3,6);
+	mat66 Q = var_model * eye<mat>(6,6);
+	mat33 R = var_noise * eye<mat>(3,3);
+	EKF filter = EKF(calc_next_ball,C,Q,R);
+	return filter;
+}
+
+/**
+ * @brief Function that integrates a basketball for an outside filter.
+ *
+ * Function exposes the integration to filters, e.g. an EKF.
+ * They can use then to apply predict() using the this function pointer.
+ *
+ * Warning: spin is turned OFF!
+ * Prediction with a spin model assumes that spin is kept constant
+ * as changes to spin are not saved!
+ *
+ *
+ * @param xnow Consists of current ball position and velocity.
+ * @param dt Prediction horizon.
+ * @param fp Function parameters, not used.
+ * @return Next ball positions and velocities.
+ */
+vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
+
+	vec3 theta = xnow.head(3);
+	vec3 theta_dot = xnow.head(3);
+	const double gravity = -9.8;
+	const double friction = 0.03;
+	theta_dot += dt * (gravity * sin(theta) - friction * theta_dot);
+	theta += dt * theta_dot;
+	return join_vert(theta,theta_dot);
+}
+
+
+/*
+ * Set upper and lower bounds on the optimization.
+ * First loads the joint limits and then puts some slack
+ */
+void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
+
+	read_joint_limits(lb,ub);
+	// lower bounds and upper bounds for qf are the joint limits
+	for (int i = 0; i < NDOF; i++) {
+		ub[i] -= SLACK;
+		lb[i] += SLACK;
+		ub[i+NDOF] = MAX_VEL;
+		lb[i+NDOF] = -MAX_VEL;
+	}
+	// constraints on final time
+	ub[2*NDOF] = Tmax;
+	lb[2*NDOF] = 0.01;
+}
+
+/**
+ * @brief Checks to see if the observation is new (updated)
+ *
+ * The blobs need to be at least tol apart from each other in distance
+ *
+ */
+bool check_new_obs(const vec3 & obs, double tol) {
+
+	static vec3 last_obs = zeros<vec>(3);
+
+	if (norm(obs - last_obs) > tol) {
+		last_obs = obs;
+		return true;
+	}
+	return false;
+}
+
+/**
+ * @brief Check to see if we want to reset the filter.
+ *
+ * Basically if a new ball appears 300 ms later than the last new ball
+ * we reset the filter.
+ *
+ */
+bool check_reset_filter(const bool newball, const int verbose, const double threshold) {
+
+	bool reset = false;
+	static int reset_cnt = 0;
+	static bool firsttime = true;
+	static wall_clock timer;
+
+	if (firsttime) {
+		firsttime = false;
+		timer.tic();
+	}
+
+	if (newball) {
+		if (timer.toc() > threshold) {
+			reset = true;
+			if (verbose > 0) {
+				std::cout << "Resetting filter! Count: " << ++reset_cnt << std::endl;
+			}
+		}
+		timer.tic();
+	}
+	return reset;
 }

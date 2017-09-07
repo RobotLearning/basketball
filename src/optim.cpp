@@ -14,8 +14,6 @@
 #include "math.h"
 #include "kinematics.h"
 #include "optim.h"
-#include "tabletennis.h"
-#include "lookup.h"
 
 // termination
 static bool check_optim_result(const int res);
@@ -24,8 +22,7 @@ static bool check_optim_result(const int res);
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *f_data);
-static void first_order_hold(const optim_des* racketdata, const double T, double racket_pos[NCART],
-		               double racket_vel[NCART], double racket_n[NCART]);
+static void first_order_hold(const optim_des* data, const double T, double ball_pos[NCART], double ball_vel[NCART]);
 
 /**
  * @brief Update the initial state of optimization to PLAYER's current joint states.
@@ -399,18 +396,16 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *my_function_data) {
 
-	static double racket_des_pos[NCART];
-	static double racket_des_vel[NCART];
-	static double racket_des_normal[NCART];
+	static double des_pos[NCART];
+	static double des_vel[NCART];
 	static double pos[NCART];
 	static double qfdot[NDOF_ACTIVE];
 	static double vel[NCART];
-	static double normal[NCART];
 	static double qf[NDOF_ACTIVE];
 	double T = x[2*NDOF_ACTIVE];
 
 	Optim *opt = (Optim*) my_function_data;
-	optim_des* racket_data = opt->param_des;
+	optim_des* data = opt->param_des;
 
 	if (grad) {
 		static double h = 1e-6;
@@ -430,7 +425,7 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	}
 
 	// interpolate at time T to get the desired racket parameters
-	first_order_hold(racket_data,T,racket_des_pos,racket_des_vel,racket_des_normal);
+	first_order_hold(data,T,des_pos,des_vel);
 
 	// extract state information from optimization variables
 	for (int i = 0; i < NDOF_ACTIVE; i++) {
@@ -439,36 +434,32 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	}
 
 	// compute the actual racket pos,vel and normal
-	calc_racket_state(qf,qfdot,pos,vel,normal);
+	get_position(qf,pos);
 
 	// deviations from the desired racket frame
 	for (int i = 0; i < NCART; i++) {
-		result[i] = pos[i] - racket_des_pos[i];
-		result[i + NCART] = vel[i] - racket_des_vel[i];
-		result[i + 2*NCART] = normal[i] - racket_des_normal[i];
+		result[i] = pos[i] - des_pos[i];
 	}
 
 }
 
 /*
  * First order hold to interpolate linearly at time T
- * between racket pos,vel,normal entries
+ * between ball pos,vel
  *
- * IF T is nan, racket variables are assigned to zero-element of
- * relevant racket entries
+ * IF T is nan, ball variables are assigned to zero-element of
+ * relevant ball entries
  *
  */
-static void first_order_hold(const optim_des* data, const double T, double racket_pos[NCART],
-		               double racket_vel[NCART], double racket_n[NCART]) {
+static void first_order_hold(const optim_des* data, const double T, double ball_pos[NCART], double ball_vel[NCART]) {
 
 	double deltat = data->dt;
 	if (std::isnan(T)) {
 		printf("Warning: T value is nan!\n");
 
 		for(int i = 0; i < NCART; i++) {
-			racket_pos[i] = data->racket_pos(i,0);
-			racket_vel[i] = data->racket_vel(i,0);
-			racket_n[i] = data->racket_normal(i,0);
+			ball_pos[i] = data->ball_pos(i,0);
+			ball_vel[i] = data->ball_vel(i,0);
 		}
 	}
 	else {
@@ -478,17 +469,14 @@ static void first_order_hold(const optim_des* data, const double T, double racke
 
 		for (int i = 0; i < NCART; i++) {
 			if (N < Nmax - 1) {
-				racket_pos[i] = data->racket_pos(i,N) +
-						(Tdiff/deltat) * (data->racket_pos(i,N+1) - data->racket_pos(i,N));
-				racket_vel[i] = data->racket_vel(i,N) +
-						(Tdiff/deltat) * (data->racket_vel(i,N+1) - data->racket_vel(i,N));
-				racket_n[i] = data->racket_normal(i,N) +
-						(Tdiff/deltat) * (data->racket_normal(i,N+1) - data->racket_normal(i,N));
+				ball_pos[i] = data->ball_pos(i,N) +
+						(Tdiff/deltat) * (data->ball_pos(i,N+1) - data->ball_pos(i,N));
+				ball_vel[i] = data->ball_vel(i,N) +
+						(Tdiff/deltat) * (data->ball_vel(i,N+1) - data->ball_vel(i,N));
 			}
 			else {
-				racket_pos[i] = data->racket_pos(i,Nmax-1);
-				racket_vel[i] = data->racket_vel(i,Nmax-1);
-				racket_n[i] = data->racket_normal(i,Nmax-1);
+				ball_pos[i] = data->ball_pos(i,Nmax-1);
+				ball_vel[i] = data->ball_vel(i,Nmax-1);
 			}
 		}
 	}

@@ -38,9 +38,6 @@ using namespace arma;
  * For DP, we only use the ball predicted positions and velocities.
  */
 struct optim_des {
-	mat racket_pos = zeros<mat>(NCART,1); //!< racket desired pos
-	mat racket_vel = zeros<mat>(NCART,1); //!< racket desired vel
-	mat racket_normal = zeros<mat>(NCART,1); //!< racket desired normals
 	mat ball_pos = zeros<mat>(NCART,1); //!< incoming ball predicted pos.
 	mat ball_vel = zeros<mat>(NCART,1); //!< incoming ball predicted vels.
 	double dt = DT; //!< time step between each prediction
@@ -154,5 +151,8 @@ void calc_strike_extrema_cand(const double *a1, const double *a2, const double T
 void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
+double calc_max_acc_violation(const double x[2*NDOF_ACTIVE+1],
+		const double q0[NDOF_ACTIVE],
+		const double q0dot[NDOF_ACTIVE]);
 
 #endif /* OPTIMPOLY_H_ */

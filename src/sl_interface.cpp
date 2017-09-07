@@ -7,62 +7,12 @@
 #include <armadillo>
 #include <cmath>
 #include <sys/time.h>
+#include "constants.h"
 #include "kalman.h"
 #include "player.hpp"
+#include "kinematics.h"
 
 using namespace arma;
-
-/*! links of the robot */
-enum RobotDOFs {
-  BASE=0,
-
-  L_SFE, // 01
-  L_SAA, // 02
-  L_HR,  // 03
-  L_EB,  // 04
-  L_WR,  // 05
-  L_WFE, // 06
-  L_WAA, // 07
-
-  R_SFE, // 08
-  R_SAA, // 09
-  R_HR,  // 10
-  R_EB,  // 11
-  R_WR,  // 12
-  R_WFE, // 13
-  R_WAA, // 14
-
-  L_HFE, // 15
-  L_HAA, // 16
-  L_HFR, // 17
-  L_KFE, // 18
-  L_AR,  // 19
-  L_AFE, // 20
-  L_AAA, // 21
-
-  R_HFE, // 22
-  R_HAA, // 23
-  R_HFR, // 24
-  R_KFE, // 25
-  R_AR,  // 26
-  R_AFE, // 27
-  R_AAA, // 28
-
-  B_TR,  // 29
-  B_TAA, // 30
-  B_TFE, // 31
-
-  B_HN,  // 32
-  B_HT,  // 33
-  B_HR,  // 34
-
-  R_EP,  // 35
-  R_ET,  // 36
-  L_EP,  // 37
-  L_ET,  // 38
-
-  N_ROBOT_DOFS
-};
 
 
 /* The data structures from SL */
@@ -107,11 +57,6 @@ struct blob_state {
 	double pos[NCART]; //!< ball center cartesian positions from cameras 1 and 2(after calibration)
 };
 
-struct player_flags {
-	vec active_dofs = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
-	bool reset = false;
-};
-
 player_flags opt; //!< global structure for setting Player options
 
 #include "sl_interface.h"
@@ -128,7 +73,7 @@ player_flags opt; //!< global structure for setting Player options
  * @param joint_des_state Desired joint position, velocity and acceleration commands.
  */
 void play(const SL_Jstate joint_state[NDOF+1],
-		  const blob_state blobs[NBLOBS],
+		  const blob_state *blobs,
 		  SL_DJstate joint_des_state[NDOF+1]) {
 
 	static vec7 q0;
@@ -166,4 +111,19 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		joint_des_state[i+1].thdd = qdes.qdd(i);
 	}
 
+}
+
+/*
+ *
+ * Fusing multiple blobs
+ * TODO:
+ *
+ */
+static void fuse_blobs(const blob_state * blobs, vec3 & obs) {
+
+	if (blobs->status) {
+		obs(0) = blobs->pos[0];
+		obs(1) = blobs->pos[1];
+		obs(2) = blobs->pos[2];
+	}
 }
