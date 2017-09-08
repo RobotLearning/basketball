@@ -111,7 +111,7 @@ double max_array(const double *x, const int length) {
  \param[in]     word     : keyword to be found
 
  ******************************************************************************/
-int find_keyword(FILE *fp, char *name) {
+int find_keyword(FILE *fp, const char *name) {
 
 	int  i;
 	int  rc = TRUE;

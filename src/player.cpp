@@ -55,7 +55,7 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	double ub[2*NDOF_ACTIVE+1];
 	double SLACK = 0.02;
 	double Tmax = 1.0;
-	set_bounds(lb,ub,SLACK,Tmax);
+	set_bounds(flags.active_dofs,SLACK,Tmax,lb,ub);
 
 	opt = new Optim(q0,lb,ub);
 	opt->set_return_time(pflags.time2return);
@@ -487,19 +487,20 @@ vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
  * Set upper and lower bounds on the optimization.
  * First loads the joint limits and then puts some slack
  */
-void set_bounds(double *lb, double *ub, double SLACK, double Tmax) {
+void set_bounds(const ivec & active_dofs, const double SLACK, const double Tmax, double *lb, double *ub) {
 
-	read_joint_limits(lb,ub);
+	double lb_full[NDOF], ub_full[NDOF];
+	read_joint_limits(lb_full,ub_full);
 	// lower bounds and upper bounds for qf are the joint limits
-	for (int i = 0; i < NDOF; i++) {
-		ub[i] -= SLACK;
-		lb[i] += SLACK;
-		ub[i+NDOF] = MAX_VEL;
-		lb[i+NDOF] = -MAX_VEL;
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		ub[i] = ub_full[active_dofs(i)] - SLACK;
+		lb[i] = lb_full[active_dofs(i)] + SLACK;
+		ub[i + NDOF_ACTIVE] = MAX_VEL;
+		lb[i + NDOF_ACTIVE] = -MAX_VEL;
 	}
 	// constraints on final time
-	ub[2*NDOF] = Tmax;
-	lb[2*NDOF] = 0.01;
+	ub[2*NDOF_ACTIVE] = Tmax;
+	lb[2*NDOF_ACTIVE] = 0.01;
 }
 
 /**

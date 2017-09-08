@@ -92,6 +92,6 @@
 
 // kinematics functions from SL
 void get_position(const double q[NDOF], double pos[NCART]);
-int read_joint_limits(double *lb, double *ub);
+bool read_joint_limits(double *lb, double *ub);
 
 #endif /* KINEMATICS_H_ */

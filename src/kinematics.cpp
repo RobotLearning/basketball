@@ -11,11 +11,13 @@
  */
 
 #include "math.h"
-#include "stdio.h"
 #include "stdlib.h"
 #include "constants.h"
-#include "utils.h"
-#include "string.h"
+#include <string>
+#include <vector>
+#include <fstream>
+#include <sstream>
+#include <iostream>
 #include "kinematics.h"
 
 // internal functions used in calculating cartesian quantities
@@ -59,14 +61,14 @@ static void kinematics(const double state[NDOF],
 				double Xaxis[NDOF+1][4],
 		        double Ahmat[NDOF+1][5][5]) {
 
-	static int firsttime = TRUE;
+	static bool firsttime = true;
 	static double basec[3+1] = {0.0};
 	static double baseo[4+1] = {0.0};
 	static double eff_a[NENDEFF+1][NCART+1];
 	static double eff_x[NENDEFF+1][NCART+1];
 
 	if (firsttime) {
-		firsttime = FALSE;
+		firsttime = false;
 		// special parameters
 		eff_a[RIGHT_HAND][1]  = -M_PI/2.;
 		eff_a[LEFT_HAND][1]   = -M_PI/2.;
@@ -1901,45 +1903,38 @@ static void jacobian(const double link[NLINK+1][4],
  * @return If can load the joint limits successfully then returns 1.
  *
  */
-int read_joint_limits(double *lb, double *ub) {
+bool read_joint_limits(double *lb, double *ub) {
 
-	char joint_names[][20] = {
-			{"R_SFE"},
-			{"R_SAA"},
-			{"R_HR"},
-			{"R_EB"},
-			{"R_WR"},
-			{"R_WFE"},
-			{"R_WAA"}
-	};
-	char fname[] = "SensorOffset.cf";
-
-	/* find all joint variables and read them into the appropriate array */
-	char string[100];
-	FILE *in;
-
-	/* get the max, min of the position sensors */
-
-	sprintf(string,"/usr/home/cbiwork/workspace/SL_prog/cbUser/config/",fname);
-	/* get the max, min of the position sensors */
-	in = fopen(string,"r");
-	if (in == NULL) {
-		printf("ERROR: Cannot open file >%s<!\n",string);
-		return FALSE;
-	}
-
-	/* find all joint variables and read them into the appropriate array */
-
-	for (int i = 0; i < NDOF; i++) {
-		if (!find_keyword(in, &(joint_names[i][0]))) {
-			printf("ERROR: Cannot find offset for %s!\n",joint_names[i]);
-			fclose(in);
-			return TRUE;
+	using namespace std;
+	int idx;
+	string line;
+	vector<string> lines;
+	string foldername = "/usr/home/cbiwork/workspace/SL_prog/cbUser/config/";
+	string name = "SensorOffset.cf";
+	string filename = foldername + name;
+	ifstream myfile(filename);
+	if (myfile.is_open()) {
+		while (myfile.good()) {
+			getline(myfile,line);
+			lines.push_back(line);
 		}
-		fscanf(in,"%lf %lf", &lb[i], &ub[i]);
 	}
-	fclose(in);
-
-	return TRUE;
-
+	else {
+		cout << "Error: cannot open file: " << filename << " !\n";
+		return false;
+	}
+	for (unsigned i = 0; i < lines.size(); i++) {
+		istringstream iss(lines[i]);
+		for (unsigned j = 0; j < joint_names.size(); j++) {
+			idx = lines[i].find(joint_names[j]);
+			if (idx != lines[i].npos) { // get the next two doubles
+				//cout << "Reading joint limits for " << j << endl;
+				iss.seekg(idx + 5);
+				iss >> lb[j];
+				iss >> ub[j];
+				break;
+			}
+		}
+	}
+	return true;
 }

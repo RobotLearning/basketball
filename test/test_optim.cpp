@@ -16,7 +16,6 @@
 #include <armadillo>
 #include <thread>
 #include "kinematics.h"
-#include "utils.h"
 #include "optim.h"
 #include "player.hpp"
 
@@ -56,7 +55,8 @@ BOOST_AUTO_TEST_CASE(test_optim) {
 	vec::fixed<15> strike_params;
 	vec6 ball_state;
 	init_default_posture(qact.q);
-	set_bounds(lb,ub,SLACK,Tmax);
+	ivec active_dofs = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
+	set_bounds(active_dofs,SLACK,Tmax,lb,ub);
 	optim_des params;
 	int N = 1000;
 	params.Nmax = 1000;

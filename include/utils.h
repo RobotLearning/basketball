@@ -49,6 +49,6 @@ void my_free_vector(Vector vec, int nl, int nh);
 void my_free_matrix(Matrix mat, int nrl, int nrh, int ncl, int nch);
 
 // io method from SL, one indexed
-int find_keyword(FILE *fp, char *name);
+int find_keyword(FILE *fp, const char *name);
 
 #endif /* UTILS_H_ */
