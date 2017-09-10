@@ -90,8 +90,10 @@
 #endif
 #define Degree		0.01745329251994329576924
 
+using namespace arma;
+
 // kinematics functions from SL
-void get_position(const double q[NDOF], double pos[NCART]);
+void get_position(const ivec & act_dofs, const double q[NDOF_ACTIVE], double pos[NCART]);
 bool read_joint_limits(double *lb, double *ub);
 
 #endif /* KINEMATICS_H_ */

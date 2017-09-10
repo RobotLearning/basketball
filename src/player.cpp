@@ -31,6 +31,7 @@
 #include "kalman.h"
 #include "optim.h"
 #include "kinematics.h"
+#include "math.h"
 
 using namespace arma;
 
@@ -461,25 +462,33 @@ EKF init_filter(const double var_model, const double var_noise) {
  * Function exposes the integration to filters, e.g. an EKF.
  * They can use then to apply predict() using the this function pointer.
  *
- * Warning: spin is turned OFF!
- * Prediction with a spin model assumes that spin is kept constant
- * as changes to spin are not saved!
- *
- *
- * @param xnow Consists of current ball position and velocity.
- * @param dt Prediction horizon.
- * @param fp Function parameters, not used.
- * @return Next ball positions and velocities.
  */
 vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 
-	vec3 theta = xnow.head(3);
-	vec3 theta_dot = xnow.head(3);
+	const vec3 base_pendulum = {0.0, 1.0, 1.0};
+	const double string_len = 1.0;
+	const double basketball_radius = 0.1213;
 	const double gravity = -9.8;
 	const double friction = 0.03;
+
+	vec3 ball_pos = xnow.head(3);
+	vec3 ball_vel = xnow.tail(3);
+
+	ball_pos -= base_pendulum;
+
+	// to integrate the ball first extract the theta and theta dot
+	// integrate them and then revert back to current ball pos
+	double theta = atan(ball_pos(Y) / ball_pos(Z));
+	double theta_dot = atan(ball_vel(Y) / ball_vel(Y));
+
 	theta_dot += dt * (gravity * sin(theta) - friction * theta_dot);
 	theta += dt * theta_dot;
-	return join_vert(theta,theta_dot);
+
+	ball_pos(Y) = base_pendulum(Y) - (string_len + basketball_radius) * sin(theta);
+	ball_pos(Z) = base_pendulum(Z) - (string_len + basketball_radius) * cos(theta);
+	ball_vel(Y) = -(string_len + basketball_radius) * theta_dot * cos(theta);
+	ball_vel(Z) = (string_len + basketball_radius) * theta_dot * sin(theta);
+	return join_vert(ball_pos,ball_vel);
 }
 
 

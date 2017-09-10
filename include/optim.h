@@ -21,8 +21,8 @@
 #include "constants.h"
 
 // defines
-const int EQ_CONSTR_DIM = 3*NCART;
-const int INEQ_CONSTR_DIM = 2*NDOF_ACTIVE + 2*NDOF; // both strike and returning trajectories, min and max
+const int EQ_CONSTR_DIM = NCART;
+const int INEQ_CONSTR_DIM = 2*NDOF_ACTIVE + 2*NDOF_ACTIVE; // both strike and returning trajectories, min and max
 const double MAX_VEL = 10;
 const double MAX_ACC = 200;
 
@@ -64,9 +64,9 @@ struct spline_params {
  * every 2ms for Barrett WAM.
  */
 struct joint {
-	vec7 q = zeros<vec>(NDOF_ACTIVE); //!< desired joint pos
-	vec7 qd = zeros<vec>(NDOF_ACTIVE); //!< desired joint vels
-	vec7 qdd = zeros<vec>(NDOF_ACTIVE); //!< desired joint accs
+	vec q = zeros<vec>(NDOF_ACTIVE); //!< desired joint pos
+	vec qd = zeros<vec>(NDOF_ACTIVE); //!< desired joint vels
+	vec qdd = zeros<vec>(NDOF_ACTIVE); //!< desired joint accs
 };
 
 /**
@@ -98,7 +98,6 @@ protected:
 	bool update = false; //!< optim finished and soln. seems valid
 	bool running = false; //!< optim still RUNNING
 	bool detach = false; //!< detach optim in another thread
-	mat lookup_table; //!< lookup table used to init. optim values
 	nlopt_opt opt; //!< optimizer from NLOPT library
 
 	double qf[NDOF_ACTIVE] = {0.0}; //!< saved joint positions after optim
@@ -113,6 +112,7 @@ protected:
 	void update_rest_state(const vec7 & q_rest_new);
 	void optim();
 public:
+	ivec active_dofs;
 	optim_des *param_des; //!< Desired racket and/or ball predicted vals.
 	double lb[2*NDOF_ACTIVE+1]; //!< Joint lower limits, joint vel. lower limit and min. hitting time
 	double ub[2*NDOF_ACTIVE+1]; //!< Joint upper limits, joint vel. upper limit and max. hitting time
@@ -124,6 +124,7 @@ public:
 	Optim(const vec7 & qrest_, double lb_[], double ub_[]);
 	bool check_update();
 	bool check_running();
+	void set_active_dofs(const ivec & act_dofs);
 	void set_moving(bool flag);
 	void set_detach(bool flag);
 	void set_verbose(bool flag);

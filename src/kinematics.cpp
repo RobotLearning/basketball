@@ -10,6 +10,7 @@
  *      Author: okoc
  */
 
+#include <armadillo>
 #include "math.h"
 #include "stdlib.h"
 #include "constants.h"
@@ -19,6 +20,8 @@
 #include <sstream>
 #include <iostream>
 #include "kinematics.h"
+
+using namespace arma;
 
 // internal functions used in calculating cartesian quantities
 static void kinematics(const double state[NDOF],
@@ -30,18 +33,31 @@ static void jacobian(const double link[NLINK+1][4],
 		const double origin[NDOF+1][4],
 		const double axis[NDOF+1][4],
 		double jac[2*NCART][NDOF]);
+static bool read_default_state(double q_default[NDOF]);
 
 
 /**
  * @brief Returns the cartesian endeffector positions
  */
-void get_position(const double q[NDOF], double pos[NCART]) {
+void get_position(const ivec & active_dofs, const double q_active[NDOF_ACTIVE],
+		          double pos[NCART]) {
 
 	const int RIGHT_PALM = R_WAA;
 	static double link[NLINK+1][3+1];
 	static double origin[NDOF+1][3+1];
 	static double axis[NDOF+1][3+1];
 	static double amats[NDOF+1][4+1][4+1];
+	static double q[NDOF];
+	static bool firsttime = true;
+
+	if (firsttime) {
+		read_default_state(q);
+		firsttime = false;
+	}
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		q[active_dofs[i]] = q_active[i];
+	}
+
 	kinematics(q,link,origin,axis,amats);
 	for (int i = 0; i < NCART; i++) {
 		pos[i] = link[RIGHT_PALM][i+1];
@@ -1909,7 +1925,49 @@ bool read_joint_limits(double *lb, double *ub) {
 	int idx;
 	string line;
 	vector<string> lines;
-	string foldername = "/usr/home/cbiwork/workspace/SL_prog/cbUser/config/";
+	string foldername = "config/";
+	string name = "SensorOffset.cf";
+	string filename = foldername + name;
+	ifstream myfile(filename);
+	if (myfile.is_open()) {
+		while (myfile.good()) {
+			getline(myfile,line);
+			lines.push_back(line);
+		}
+	}
+	else {
+		cout << "Error: cannot open file: " << filename << " !\n";
+		return false;
+	}
+	for (unsigned i = 0; i < lines.size(); i++) {
+		istringstream iss(lines[i]);
+		for (unsigned j = 0; j < joint_names.size(); j++) {
+			idx = lines[i].find(joint_names[j]);
+			if (idx != lines[i].npos) { // get the next two doubles
+				//cout << "Reading joint limits for " << j << endl;
+				iss.seekg(idx + 4);
+				iss >> lb[j];
+				iss >> ub[j];
+				break;
+			}
+		}
+	}
+	return true;
+}
+
+/**
+ * @brief Reads the default joint states (initial posture) from file.
+ *
+ *
+ */
+static bool read_default_state(double q_default[NDOF]) {
+
+	using namespace std;
+	int idx;
+	double lb[NDOF], ub[NDOF];
+	string line;
+	vector<string> lines;
+	string foldername = "config/";
 	string name = "SensorOffset.cf";
 	string filename = foldername + name;
 	ifstream myfile(filename);
@@ -1932,6 +1990,7 @@ bool read_joint_limits(double *lb, double *ub) {
 				iss.seekg(idx + 5);
 				iss >> lb[j];
 				iss >> ub[j];
+				iss >> q_default[j];
 				break;
 			}
 		}

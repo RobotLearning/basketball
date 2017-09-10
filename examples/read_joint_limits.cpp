@@ -12,7 +12,7 @@ bool read_joint_limits(double *lb, double *ub) {
 	int idx;
 	string line;
 	vector<string> lines;
-	string foldername = "/usr/home/cbiwork/workspace/SL_prog/cbUser/config/";
+	string foldername = "config/";
 	string name = "SensorOffset.cf";
 	string filename = foldername + name;
 	ifstream myfile(filename);
