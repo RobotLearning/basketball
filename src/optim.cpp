@@ -226,28 +226,26 @@ void Optim::optim() {
  * @param lb_ Fixed joint lower limits
  * @param ub_ Fixed joint upper limits
  */
-Optim::Optim(const vec7 & qrest_, double lb_[2*NDOF_ACTIVE+1], double ub_[2*NDOF_ACTIVE+1]) {
+Optim::Optim(const vec7 & qrest_, vec & lb_, vec & ub_) {
 
 	double tol_eq[EQ_CONSTR_DIM];
 	double tol_ineq[INEQ_CONSTR_DIM];
 	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
 	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
 	// set tolerances equal to second argument
+	ub = ub_;
+	lb = lb_;
 
 	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
 	nlopt_set_xtol_rel(opt, 1e-2);
-	nlopt_set_lower_bounds(opt, lb_);
-	nlopt_set_upper_bounds(opt, ub_);
+	nlopt_set_lower_bounds(opt, lb.memptr());
+	nlopt_set_upper_bounds(opt, ub.memptr());
 	nlopt_set_min_objective(opt, costfunc, this);
 	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this, tol_eq);
 
 	for (int i = 0; i < NDOF_ACTIVE; i++) {
 		qrest[i] = qrest_(i);
-	}
-	for (int i = 0; i < OPTIM_DIM; i++) {
-		ub[i] = ub_[i];
-		lb[i] = lb_[i];
 	}
 }
 
@@ -329,9 +327,8 @@ double Optim::test_soln(const double x[]) const {
 		// give info on solution vector
 		print_optim_vec(x);
 		printf("f = %.2f\n",cost);
-		printf("Position constraint violation: [%.2f %.2f %.2f]\n",kin_violation[0],kin_violation[1],kin_violation[2]);
-		printf("Velocity constraint violation: [%.2f %.2f %.2f]\n",kin_violation[3],kin_violation[4],kin_violation[5]);
-		printf("Normal constraint violation: [%.2f %.2f %.2f]\n",kin_violation[6],kin_violation[7],kin_violation[8]);
+		printf("Position constraint violation: [%.2f %.2f %.2f]\n",
+				kin_violation[0],kin_violation[1],kin_violation[2]);
 		for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
 			if (lim_violation[i] > 0.0)
 				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF_ACTIVE + 1);
@@ -431,7 +428,6 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	for (int i = 0; i < NCART; i++) {
 		result[i] = pos[i] - des_pos[i];
 	}
-
 }
 
 /*
@@ -442,7 +438,8 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
  * relevant ball entries
  *
  */
-static void first_order_hold(const optim_des* data, const double T, double ball_pos[NCART], double ball_vel[NCART]) {
+static void first_order_hold(const optim_des* data, const double T,
+		                     double ball_pos[NCART], double ball_vel[NCART]) {
 
 	double deltat = data->dt;
 	if (std::isnan(T)) {
@@ -495,8 +492,6 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 	double *q0 = opt->q0;
 	double *q0dot = opt->q0dot;
 	double *qrest = opt->qrest;
-	double *ub = opt->ub;
-	double *lb = opt->lb;
 	double Tret = opt->time2return;
 
 	if (grad) {
@@ -526,10 +521,10 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 
 	/* deviations from joint min and max */
 	for (int i = 0; i < NDOF_ACTIVE; i++) {
-		result[i] = joint_strike_max_cand[i] - ub[i];
-		result[i+NDOF_ACTIVE] = lb[i] - joint_strike_min_cand[i];
-		result[i+2*NDOF_ACTIVE] = joint_return_max_cand[i] - ub[i];
-		result[i+3*NDOF_ACTIVE] = lb[i] - joint_return_min_cand[i];
+		result[i] = joint_strike_max_cand[i] - opt->ub(i);
+		result[i+NDOF_ACTIVE] = opt->lb(i) - joint_strike_min_cand[i];
+		result[i+2*NDOF_ACTIVE] = joint_return_max_cand[i] - opt->ub(i);
+		result[i+3*NDOF_ACTIVE] = opt->lb(i) - joint_return_min_cand[i];
 		//printf("%f %f %f %f\n", result[i],result[i+DOF],result[i+2*DOF],result[i+3*DOF]);
 	}
 

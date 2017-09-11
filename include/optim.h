@@ -114,14 +114,14 @@ protected:
 public:
 	ivec active_dofs;
 	optim_des *param_des; //!< Desired racket and/or ball predicted vals.
-	double lb[2*NDOF_ACTIVE+1]; //!< Joint lower limits, joint vel. lower limit and min. hitting time
-	double ub[2*NDOF_ACTIVE+1]; //!< Joint upper limits, joint vel. upper limit and max. hitting time
+	vec lb = zeros<vec>(2*NDOF_ACTIVE+1); //!< Joint lower limits, joint vel. lower limit and min. hitting time
+	vec ub = zeros<vec>(2*NDOF_ACTIVE+1); //!< Joint upper limits, joint vel. upper limit and max. hitting time
 	double qrest[NDOF_ACTIVE] = {0.0}; //!< FIXED Resting posture for optimizers to compute return traj.
 	double q0[NDOF_ACTIVE] = {0.0}; //!< Initial joint state needed to compute traj. acc.
 	double q0dot[NDOF_ACTIVE] = {0.0}; //!< Initial joint velocities needed to compute traj. acc.
 	double time2return = 1.0; //!< FIXED Time to return
 	Optim();
-	Optim(const vec7 & qrest_, double lb_[], double ub_[]);
+	Optim(const vec7 & qrest, vec & lb, vec & ub);
 	bool check_update();
 	bool check_running();
 	void set_active_dofs(const ivec & act_dofs);

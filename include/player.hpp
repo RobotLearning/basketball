@@ -115,8 +115,7 @@ bool check_new_obs(const vec3 & obs, double tol);
 bool update_next_state(const spline_params & poly,
 		           const vec7 & q_rest_des,
 				   const double time2return, double & t_poly, joint & qdes);
-void set_bounds(const ivec & active_dofs,
-		        const double SLACK, const double Tmax, double *lb, double *ub);
+void set_bounds(const ivec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub);
 
 
 #endif /* PLAYER_HPP_ */

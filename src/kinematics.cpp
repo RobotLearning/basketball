@@ -33,7 +33,7 @@ static void jacobian(const double link[NLINK+1][4],
 		const double origin[NDOF+1][4],
 		const double axis[NDOF+1][4],
 		double jac[2*NCART][NDOF]);
-static bool read_default_state(double q_default[NDOF]);
+static void read_default_state(vec & q_default);
 
 
 /**
@@ -47,7 +47,7 @@ void get_position(const ivec & active_dofs, const double q_active[NDOF_ACTIVE],
 	static double origin[NDOF+1][3+1];
 	static double axis[NDOF+1][3+1];
 	static double amats[NDOF+1][4+1][4+1];
-	static double q[NDOF];
+	static vec q = zeros<vec>(NDOF);
 	static bool firsttime = true;
 
 	if (firsttime) {
@@ -55,10 +55,10 @@ void get_position(const ivec & active_dofs, const double q_active[NDOF_ACTIVE],
 		firsttime = false;
 	}
 	for (int i = 0; i < NDOF_ACTIVE; i++) {
-		q[active_dofs[i]] = q_active[i];
+		q(active_dofs[i]) = q_active[i];
 	}
 
-	kinematics(q,link,origin,axis,amats);
+	kinematics(q.memptr(),link,origin,axis,amats);
 	for (int i = 0; i < NCART; i++) {
 		pos[i] = link[RIGHT_PALM][i+1];
 		//normal[i] = amats[PALM][i+1][2];
@@ -1919,40 +1919,12 @@ static void jacobian(const double link[NLINK+1][4],
  * @return If can load the joint limits successfully then returns 1.
  *
  */
-bool read_joint_limits(double *lb, double *ub) {
+void read_joint_limits(vec & lb, vec & ub) {
 
-	using namespace std;
-	int idx;
-	string line;
-	vector<string> lines;
-	string foldername = "config/";
-	string name = "SensorOffset.cf";
-	string filename = foldername + name;
-	ifstream myfile(filename);
-	if (myfile.is_open()) {
-		while (myfile.good()) {
-			getline(myfile,line);
-			lines.push_back(line);
-		}
-	}
-	else {
-		cout << "Error: cannot open file: " << filename << " !\n";
-		return false;
-	}
-	for (unsigned i = 0; i < lines.size(); i++) {
-		istringstream iss(lines[i]);
-		for (unsigned j = 0; j < joint_names.size(); j++) {
-			idx = lines[i].find(joint_names[j]);
-			if (idx != lines[i].npos) { // get the next two doubles
-				//cout << "Reading joint limits for " << j << endl;
-				iss.seekg(idx + 4);
-				iss >> lb[j];
-				iss >> ub[j];
-				break;
-			}
-		}
-	}
-	return true;
+	mat limits;
+	limits.load("config/joint_limits.cfg");
+	lb = limits.col(0);
+	ub = limits.col(1);
 }
 
 /**
@@ -1960,40 +1932,9 @@ bool read_joint_limits(double *lb, double *ub) {
  *
  *
  */
-static bool read_default_state(double q_default[NDOF]) {
+static void read_default_state(vec & q_default) {
 
-	using namespace std;
-	int idx;
-	double lb[NDOF], ub[NDOF];
-	string line;
-	vector<string> lines;
-	string foldername = "config/";
-	string name = "SensorOffset.cf";
-	string filename = foldername + name;
-	ifstream myfile(filename);
-	if (myfile.is_open()) {
-		while (myfile.good()) {
-			getline(myfile,line);
-			lines.push_back(line);
-		}
-	}
-	else {
-		cout << "Error: cannot open file: " << filename << " !\n";
-		return false;
-	}
-	for (unsigned i = 0; i < lines.size(); i++) {
-		istringstream iss(lines[i]);
-		for (unsigned j = 0; j < joint_names.size(); j++) {
-			idx = lines[i].find(joint_names[j]);
-			if (idx != lines[i].npos) { // get the next two doubles
-				//cout << "Reading joint limits for " << j << endl;
-				iss.seekg(idx + 5);
-				iss >> lb[j];
-				iss >> ub[j];
-				iss >> q_default[j];
-				break;
-			}
-		}
-	}
-	return true;
+	mat limits;
+	limits.load("config/joint_limits.cfg");
+	q_default = limits.col(2);
 }

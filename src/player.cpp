@@ -52,8 +52,8 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
 	//load_lookup_table(lookup_table);
 
-	double lb[2*NDOF_ACTIVE+1];
-	double ub[2*NDOF_ACTIVE+1];
+	vec lb = zeros<vec>(2*NDOF_ACTIVE+1);
+	vec ub = zeros<vec>(2*NDOF_ACTIVE+1);
 	double SLACK = 0.02;
 	double Tmax = 1.0;
 	set_bounds(flags.active_dofs,SLACK,Tmax,lb,ub);
@@ -479,7 +479,7 @@ vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 	// to integrate the ball first extract the theta and theta dot
 	// integrate them and then revert back to current ball pos
 	double theta = atan(ball_pos(Y) / ball_pos(Z));
-	double theta_dot = atan(ball_vel(Y) / ball_vel(Y));
+	double theta_dot = -ball_vel(Y) / ((string_len + basketball_radius) * cos(theta));
 
 	theta_dot += dt * (gravity * sin(theta) - friction * theta_dot);
 	theta += dt * theta_dot;
@@ -496,20 +496,21 @@ vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
  * Set upper and lower bounds on the optimization.
  * First loads the joint limits and then puts some slack
  */
-void set_bounds(const ivec & active_dofs, const double SLACK, const double Tmax, double *lb, double *ub) {
+void set_bounds(const ivec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub) {
 
-	double lb_full[NDOF], ub_full[NDOF];
+	vec lb_full = zeros<vec>(NDOF);
+	vec ub_full = zeros<vec>(NDOF);
 	read_joint_limits(lb_full,ub_full);
 	// lower bounds and upper bounds for qf are the joint limits
 	for (int i = 0; i < NDOF_ACTIVE; i++) {
-		ub[i] = ub_full[active_dofs(i)] - SLACK;
-		lb[i] = lb_full[active_dofs(i)] + SLACK;
-		ub[i + NDOF_ACTIVE] = MAX_VEL;
-		lb[i + NDOF_ACTIVE] = -MAX_VEL;
+		ub(i) = ub_full(active_dofs(i)) - SLACK;
+		lb(i) = lb_full(active_dofs(i)) + SLACK;
+		ub(NDOF_ACTIVE + i) = MAX_VEL;
+		lb(NDOF_ACTIVE + i) = -MAX_VEL;
 	}
 	// constraints on final time
-	ub[2*NDOF_ACTIVE] = Tmax;
-	lb[2*NDOF_ACTIVE] = 0.01;
+	ub(2*NDOF_ACTIVE) = Tmax;
+	lb(2*NDOF_ACTIVE) = 0.01;
 }
 
 /**

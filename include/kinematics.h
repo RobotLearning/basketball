@@ -94,6 +94,6 @@ using namespace arma;
 
 // kinematics functions from SL
 void get_position(const ivec & act_dofs, const double q[NDOF_ACTIVE], double pos[NCART]);
-bool read_joint_limits(double *lb, double *ub);
+void read_joint_limits(vec & lb, vec & ub);
 
 #endif /* KINEMATICS_H_ */

@@ -62,11 +62,12 @@ BOOST_AUTO_TEST_CASE(test_touch_basketball) {
 	vec6 ball_state;
 	arma_rng::set_seed(1);
 	//arma_rng::set_seed_random();
-	double lb[2*NDOF_ACTIVE+1], ub[2*NDOF_ACTIVE+1];
+	vec lb = zeros<vec>(2*NDOF_ACTIVE+1);
+	vec ub = zeros<vec>(2*NDOF_ACTIVE+1);
 	joint qact;
 	spline_params poly;
 	ivec active_dofs = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
-	set_bounds(active_dofs,0.01,1.0,lb,ub);
+	set_bounds(active_dofs,0.05,1.5,lb,ub);
 	init_default_basketball(ball_state);
 	init_default_posture(qact.q);
 	EKF filter = init_filter();
@@ -79,9 +80,9 @@ BOOST_AUTO_TEST_CASE(test_touch_basketball) {
 	params.ball_pos = balls_pred.rows(X,Z);
 	params.ball_vel = balls_pred.rows(DX,DZ);
 
-	for (int i = 0; i < 2*NDOF_ACTIVE+1; i++) {
-		printf("lb[%d] = %f, ub[%d] = %f\n", i,lb[i],i,ub[i]);
-	}
+	//cout << ball_state;
+	//cout << balls_pred.tail_cols(10);
+	balls_pred.save("balls_pred.txt",csv_ascii);
 
 	Optim opt = Optim(qact.q.memptr(),lb,ub);
 	opt.set_des_params(&params);
