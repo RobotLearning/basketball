@@ -42,11 +42,11 @@ inline void init_default_posture(vec & q0) {
  */
 inline void init_default_basketball(vec6 & ball_state) {
 	ball_state.zeros();
-	const vec3 base_pendulum = {0.0, 1.0, 1.0};
+	const vec3 base_pendulum = {0.00, 0.9, 0.9};
 	const double string_len = 1.0;
 	const double basketball_radius = 0.1213;
 	double theta_init = -45.0 * (PI/180.0);
-	ball_state(X) = 0.0;
+	ball_state(X) = base_pendulum(X);
 	ball_state(Y) = base_pendulum(Y) - (string_len + basketball_radius) * sin(theta_init);
 	ball_state(Z) = base_pendulum(Z) - (string_len + basketball_radius) * cos(theta_init);
 }
@@ -67,7 +67,7 @@ BOOST_AUTO_TEST_CASE(test_touch_basketball) {
 	joint qact;
 	spline_params poly;
 	ivec active_dofs = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
-	set_bounds(active_dofs,0.05,1.5,lb,ub);
+	set_bounds(active_dofs,0.00,2.0,lb,ub);
 	init_default_basketball(ball_state);
 	init_default_posture(qact.q);
 	EKF filter = init_filter();
@@ -82,7 +82,7 @@ BOOST_AUTO_TEST_CASE(test_touch_basketball) {
 
 	//cout << ball_state;
 	//cout << balls_pred.tail_cols(10);
-	balls_pred.save("balls_pred.txt",csv_ascii);
+	//balls_pred.save("balls_pred.txt",csv_ascii);
 
 	Optim opt = Optim(qact.q.memptr(),lb,ub);
 	opt.set_des_params(&params);

@@ -59,7 +59,11 @@ struct blob_state {
 
 player_flags opt; //!< global structure for setting Player options
 
-#include "sl_interface.h"
+#include "sl_basketball_interface.h"
+
+void load_options() {
+	//TODO:
+}
 
 /**
  * @brief Interface to the PLAYER class that generates desired hitting trajectories.
@@ -80,7 +84,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static vec3 ball_obs;
 	static joint qact;
 	static joint qdes;
-	static Player *robot = nullptr; // centered player
+	static Player *robot = nullptr; // pointer to player
 	static EKF filter = init_filter(0.3,0.001);
 
 	if (opt.reset) {

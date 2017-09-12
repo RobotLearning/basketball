@@ -35,7 +35,7 @@ $(OBJDIR)/kalman.o : $(DIR)/src/kalman.cpp $(HEADER)/kalman.h
 $(OBJDIR)/extkalman.o : $(DIR)/src/extkalman.cpp $(HEADER)/kalman.h
 	$(CC) -c -fPIC $(FLAGS) -o $@ $<
 	
-$(OBJDIR)/sl_interface.o : $(DIR)/src/sl_interface.cpp $(HEADER)/kalman.h $(HEADER)/optim.h $(HEADER)/kinematics.h \
+$(OBJDIR)/sl_basketball_interface.o : $(DIR)/src/sl_basketball_interface.cpp $(HEADER)/kalman.h $(HEADER)/optim.h $(HEADER)/kinematics.h \
 							$(HEADER)/constants.h
 	$(CC) -c -fPIC $(FLAGS) -o $@ $<
 	

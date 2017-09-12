@@ -462,10 +462,13 @@ EKF init_filter(const double var_model, const double var_noise) {
  * Function exposes the integration to filters, e.g. an EKF.
  * They can use then to apply predict() using the this function pointer.
  *
+ * The basketball is attached to a string so first finding the angle responsible
+ * for the observation, integrating it and then finding the next ball state
+ *
  */
 vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 
-	const vec3 base_pendulum = {0.0, 1.0, 1.0};
+	const vec3 base_pendulum = {0.0, 0.9, 0.9};
 	const double string_len = 1.0;
 	const double basketball_radius = 0.1213;
 	const double gravity = -9.8;
@@ -484,6 +487,7 @@ vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 	theta_dot += dt * (gravity * sin(theta) - friction * theta_dot);
 	theta += dt * theta_dot;
 
+	// we're in the third quadrant
 	ball_pos(Y) = base_pendulum(Y) - (string_len + basketball_radius) * sin(theta);
 	ball_pos(Z) = base_pendulum(Z) - (string_len + basketball_radius) * cos(theta);
 	ball_vel(Y) = -(string_len + basketball_radius) * theta_dot * cos(theta);
