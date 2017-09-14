@@ -1,5 +1,4 @@
 
-#include <boost/program_options.hpp>
 #include <string>
 #include <iostream>
 #include <fstream>
@@ -85,36 +84,89 @@ void play(const SL_Jstate joint_state[NDOF+1],
 	static joint qact;
 	static joint qdes;
 	static Player *robot = nullptr; // pointer to player
-	static EKF filter = init_filter(0.3,0.001);
+	static EKF filter = init_filter(0.001,0.001);
 
 	if (opt.reset) {
 		for (int i = 0; i < NDOF_ACTIVE; i++) {
-			qdes.q(i) = q0(i) = joint_state[opt.active_dofs(i)].th;
+			qdes.q(i) = q0(i) = joint_state[opt.active_dofs(i)+1].th;
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
 		filter = init_filter(0.3,0.001);
 		delete robot;
+		opt.detach = true;
 		robot = new Player(q0,filter,opt);
 		opt.reset = false;
 	}
 	else {
 		for (int i = 0; i < NDOF_ACTIVE; i++) {
-			qact.q(i) = joint_state[opt.active_dofs(i)].th;
-			qact.qd(i) = joint_state[opt.active_dofs(i)].thd;
-			qact.qdd(i) = joint_state[opt.active_dofs(i)].thdd;
+			qact.q(i) = joint_state[opt.active_dofs(i)+1].th;
+			qact.qd(i) = joint_state[opt.active_dofs(i)+1].thd;
+			qact.qdd(i) = joint_state[opt.active_dofs(i)+1].thdd;
 		}
 		fuse_blobs(blobs,ball_obs);
 		robot->play(qact,ball_obs,qdes);
 	}
 
 	// update desired joint state
-	for (int i = 0; i < NDOF; i++) {
-		joint_des_state[i+1].th = qdes.q(i);
-		joint_des_state[i+1].thd = qdes.qd(i);
-		joint_des_state[i+1].thdd = qdes.qdd(i);
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		joint_des_state[opt.active_dofs(i)+1].th = qdes.q(i);
+		joint_des_state[opt.active_dofs(i)+1].thd = qdes.qd(i);
+		joint_des_state[opt.active_dofs(i)+1].thdd = qdes.qdd(i);
+	}
+}
+
+/**
+ * @brief  CHEAT with exact knowledge of ball state.
+ *
+ * Interface to the PLAYER class that generates desired hitting trajectories.
+ * First initializes the player and then starts calling cheat() interface function.
+ *
+ * @param joint_state Actual joint positions, velocities, accelerations.
+ * @param sim_ball_state Exact simulated ball state (positions and velocities).
+ * @param joint_des_state Desired joint position, velocity and acceleration commands.
+ */
+void cheat(const SL_Jstate joint_state[NDOF+1],
+		  const SL_Cstate *sim_ball_state,
+		  SL_DJstate joint_des_state[NDOF+1]) {
+
+	static vec7 q0;
+	static vec6 ball_state;
+	static joint qact;
+	static joint qdes;
+	static Player *robot = nullptr; // centered player
+	static EKF filter = init_filter(0.001,0.001);
+
+	if (opt.reset) {
+		for (int i = 0; i < NDOF_ACTIVE; i++) {
+			qact.q(i) = joint_state[opt.active_dofs(i)+1].th;
+			qact.qd(i) = joint_state[opt.active_dofs(i)+1].thd;
+			qact.qdd(i) = joint_state[opt.active_dofs(i)+1].thdd;
+		}
+		delete robot;
+		opt.detach = true;
+		robot = new Player(q0,filter,opt);
+		opt.reset = false;
+	}
+	else {
+		for (int i = 0; i < NDOF_ACTIVE; i++) {
+			qact.q(i) = joint_state[opt.active_dofs(i)+1].th;
+			qact.qd(i) = joint_state[opt.active_dofs(i)+1].thd;
+			qact.qdd(i) = joint_state[opt.active_dofs(i)+1].thdd;
+		}
+		for (int i = 0; i < NCART; i++) {
+			ball_state(i) = sim_ball_state->x[i+1];
+			ball_state(i+NCART) = sim_ball_state->xd[i+1];
+		}
+		robot->cheat(qact,ball_state,qdes);
 	}
 
+	// update desired joint state
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		joint_des_state[opt.active_dofs(i)+1].th = qdes.q(i);
+		joint_des_state[opt.active_dofs(i)+1].thd = qdes.qd(i);
+		joint_des_state[opt.active_dofs(i)+1].thdd = qdes.qdd(i);
+	}
 }
 
 /*

@@ -121,7 +121,7 @@ public:
 	double q0dot[NDOF_ACTIVE] = {0.0}; //!< Initial joint velocities needed to compute traj. acc.
 	double time2return = 1.0; //!< FIXED Time to return
 	Optim();
-	Optim(const vec7 & qrest, vec & lb, vec & ub);
+	Optim(const vec7 & qrest, const ivec & active_dofs);
 	bool check_update();
 	bool check_running();
 	void set_active_dofs(const ivec & act_dofs);
@@ -155,5 +155,8 @@ void calc_return_extrema_cand(const double *a1, const double *a2,
 double calc_max_acc_violation(const double x[2*NDOF_ACTIVE+1],
 		const double q0[NDOF_ACTIVE],
 		const double q0dot[NDOF_ACTIVE]);
+
+// set upper and lower bounds for optimization
+void set_bounds(const ivec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub);
 
 #endif /* OPTIMPOLY_H_ */

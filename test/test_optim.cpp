@@ -67,7 +67,6 @@ BOOST_AUTO_TEST_CASE(test_touch_basketball) {
 	joint qact;
 	spline_params poly;
 	ivec active_dofs = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
-	set_bounds(active_dofs,0.00,2.0,lb,ub);
 	init_default_basketball(ball_state);
 	init_default_posture(qact.q);
 	EKF filter = init_filter();
@@ -84,9 +83,8 @@ BOOST_AUTO_TEST_CASE(test_touch_basketball) {
 	//cout << balls_pred.tail_cols(10);
 	//balls_pred.save("balls_pred.txt",csv_ascii);
 
-	Optim opt = Optim(qact.q.memptr(),lb,ub);
+	Optim opt = Optim(qact.q.memptr(),active_dofs);
 	opt.set_des_params(&params);
-	opt.set_active_dofs(active_dofs);
 	opt.update_init_state(qact);
 	opt.run();
 	bool update = opt.get_params(qact,poly);

@@ -14,11 +14,9 @@ extern "C" {
 #endif
 
 // Interface for Player
-extern void play(const SL_Jstate joint_state[],
-		         const blob_state *blobs,
-				 SL_DJstate joint_des_state[]);
+extern void play(const SL_Jstate joint_state[], const blob_state *blobs, SL_DJstate joint_des_state[]);
+extern void cheat(const SL_Jstate joint_state[], const SL_Cstate *sim_ball_state, SL_DJstate joint_des_state[]);
 
-extern void load_options();
 
 #ifdef __cplusplus
 } // extern "C"

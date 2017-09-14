@@ -52,13 +52,7 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
 	//load_lookup_table(lookup_table);
 
-	vec lb = zeros<vec>(2*NDOF_ACTIVE+1);
-	vec ub = zeros<vec>(2*NDOF_ACTIVE+1);
-	double SLACK = 0.02;
-	double Tmax = 1.0;
-	set_bounds(flags.active_dofs,SLACK,Tmax,lb,ub);
-
-	opt = new Optim(q0,lb,ub);
+	opt = new Optim(q0, flags.active_dofs);
 	opt->set_return_time(pflags.time2return);
 	opt->set_verbose(pflags.verbosity > 1);
 	opt->set_detach(pflags.detach);
@@ -124,6 +118,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 			P.eye(6,6);
 			estimate_ball_linear(observations,times,pflags.verbosity > 2,x);
 			filter.set_prior(x,P);
+			init_ball_state = true;
 			//cout << OBS << TIMES << filter.get_mean() << endl;
 		}
 
@@ -139,7 +134,8 @@ void Player::estimate_ball_state(const vec3 & obs) {
 			filter.update(obs);
 			//vec x = filter.get_mean();
 			//mat P = (filter.get_covar());
-			//cout << "OBS:" << obs.t() << "STATE:" << x.t() << "VAR:" << P.diag().t() << endl;
+			//cout << "OBS:" << obs.t() << "STATE:" << x.t();
+			//<< "VAR:" << P.diag().t() << endl;
 		}
 
 	}
@@ -205,8 +201,6 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 
 	// resetting legal ball detecting to AWAITING state
-	if (ballstate(Y) > 2.0)
-		game_state = AWAITING;
 	filter.set_prior(ballstate,0.01*eye<mat>(6,6));
 
 	optim_param(qact);
@@ -226,13 +220,18 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
  */
 void Player::optim_param(const joint & qact) {
 
+	const double time_pred = 2.0;
 	mat balls_pred;
 
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
-		predict_ball(2.0,balls_pred,filter);
+		predict_ball(time_pred,balls_pred,filter);
+		pred_params.Nmax = (int)(time_pred/DT);
+		pred_params.ball_pos = balls_pred.rows(X,Z);
+		pred_params.ball_vel = balls_pred.rows(DX,DZ);
 		opt->set_des_params(&pred_params);
 		opt->update_init_state(qact);
+		opt->set_verbose(true);
 		opt->run();
 	}
 }
@@ -495,27 +494,6 @@ vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 	return join_vert(ball_pos,ball_vel);
 }
 
-
-/*
- * Set upper and lower bounds on the optimization.
- * First loads the joint limits and then puts some slack
- */
-void set_bounds(const ivec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub) {
-
-	vec lb_full = zeros<vec>(NDOF);
-	vec ub_full = zeros<vec>(NDOF);
-	read_joint_limits(lb_full,ub_full);
-	// lower bounds and upper bounds for qf are the joint limits
-	for (int i = 0; i < NDOF_ACTIVE; i++) {
-		ub(i) = ub_full(active_dofs(i)) - SLACK;
-		lb(i) = lb_full(active_dofs(i)) + SLACK;
-		ub(NDOF_ACTIVE + i) = MAX_VEL;
-		lb(NDOF_ACTIVE + i) = -MAX_VEL;
-	}
-	// constraints on final time
-	ub(2*NDOF_ACTIVE) = Tmax;
-	lb(2*NDOF_ACTIVE) = 0.01;
-}
 
 /**
  * @brief Checks to see if the observation is new (updated)

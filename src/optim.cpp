@@ -25,6 +25,37 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 static void first_order_hold(const optim_des* data, const double T, double ball_pos[NCART], double ball_vel[NCART]);
 
 /**
+ * @brief Initialize the NLOPT optimization procedure here for FP
+ * @param qrest_ Fixed resting posture
+ * @param lb_ Fixed joint lower limits
+ * @param ub_ Fixed joint upper limits
+ */
+Optim::Optim(const vec7 & qrest_, const ivec & active_dofs_) {
+
+	double tol_eq[EQ_CONSTR_DIM];
+	double tol_ineq[INEQ_CONSTR_DIM];
+	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
+	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
+
+	double SLACK = 0.02;
+	double Tmax = 2.0;
+	active_dofs = active_dofs_;
+	set_bounds(active_dofs,SLACK,Tmax,lb,ub);
+
+	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
+	nlopt_set_xtol_rel(opt, 1e-2);
+	nlopt_set_lower_bounds(opt, lb.memptr());
+	nlopt_set_upper_bounds(opt, ub.memptr());
+	nlopt_set_min_objective(opt, costfunc, this);
+	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
+	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this, tol_eq);
+
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		qrest[i] = qrest_(i);
+	}
+}
+
+/**
  * @brief Update the initial state of optimization to PLAYER's current joint states.
  * @param qact Initial joint states acquired from sensors
  */
@@ -218,35 +249,6 @@ void Optim::optim() {
 	if (verbose)
 		check_optim_result(res);
 	running = false;
-}
-
-/**
- * @brief Initialize the NLOPT optimization procedure here for FP
- * @param qrest_ Fixed resting posture
- * @param lb_ Fixed joint lower limits
- * @param ub_ Fixed joint upper limits
- */
-Optim::Optim(const vec7 & qrest_, vec & lb_, vec & ub_) {
-
-	double tol_eq[EQ_CONSTR_DIM];
-	double tol_ineq[INEQ_CONSTR_DIM];
-	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
-	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
-	// set tolerances equal to second argument
-	ub = ub_;
-	lb = lb_;
-
-	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
-	nlopt_set_xtol_rel(opt, 1e-2);
-	nlopt_set_lower_bounds(opt, lb.memptr());
-	nlopt_set_upper_bounds(opt, ub.memptr());
-	nlopt_set_min_objective(opt, costfunc, this);
-	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
-	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this, tol_eq);
-
-	for (int i = 0; i < NDOF_ACTIVE; i++) {
-		qrest[i] = qrest_(i);
-	}
 }
 
 /**
@@ -692,4 +694,25 @@ static bool check_optim_result(const int res) {
 
 	}
 	return flag;
+}
+
+/*
+ * Set upper and lower bounds on the optimization.
+ * First loads the joint limits and then puts some slack
+ */
+void set_bounds(const ivec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub) {
+
+	vec lb_full = zeros<vec>(NDOF);
+	vec ub_full = zeros<vec>(NDOF);
+	read_joint_limits(lb_full,ub_full);
+	// lower bounds and upper bounds for qf are the joint limits
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		ub(i) = ub_full(active_dofs(i)) - SLACK;
+		lb(i) = lb_full(active_dofs(i)) + SLACK;
+		ub(NDOF_ACTIVE + i) = MAX_VEL;
+		lb(NDOF_ACTIVE + i) = -MAX_VEL;
+	}
+	// constraints on final time
+	ub(2*NDOF_ACTIVE) = Tmax;
+	lb(2*NDOF_ACTIVE) = 0.01;
 }

@@ -1921,8 +1921,11 @@ static void jacobian(const double link[NLINK+1][4],
  */
 void read_joint_limits(vec & lb, vec & ub) {
 
+	using namespace std;
 	mat limits;
-	limits.load("config/joint_limits.cfg");
+	string homename = getenv("HOME");
+	string fullname = homename + "/basketball/config/joint_limits.cfg";
+	limits.load(fullname);
 	lb = limits.col(0);
 	ub = limits.col(1);
 }
@@ -1934,7 +1937,10 @@ void read_joint_limits(vec & lb, vec & ub) {
  */
 static void read_default_state(vec & q_default) {
 
+	using namespace std;
 	mat limits;
-	limits.load("config/joint_limits.cfg");
+	string homename = getenv("HOME");
+	string fullname = homename + "/basketball/config/joint_limits.cfg";
+	limits.load(fullname);
 	q_default = limits.col(2);
 }
