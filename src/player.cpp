@@ -267,7 +267,7 @@ bool Player::check_update(const joint & qact) const {
 	try {
 		state_est = filter.get_mean();
 		counter++;
-		feasible = (state_est(DY) > 0.5);
+		feasible = (state_est(DY) >= 0.0);
 		update = !opt->check_update() && !opt->check_running();
 		// ball is incoming
 		if (pflags.mpc) {// && t_poly > 0.0) {

@@ -24,6 +24,7 @@ typedef struct {
 } blob_state;
 
 blob_state ball_obs;
+SL_Cstate sim_ball_state;
 
 #include "sl_basketball_interface.h"
 
@@ -63,17 +64,19 @@ static int simulate_ball(void) {
 	sendUserGraphics("basketball_pendulum",&theta,sizeof(double));
 
 	// fill the ball_obs structure for communicating to basketball lib
-	double ball_centre[N_CART+1];
 	const double base_pendulum[N_CART+1] = {0.0, 0.0, 0.9, 0.9};
 	const double basketball_radius = 0.1213;
 	const double string_len = 1.0;
-	ball_centre[1] = base_pendulum[1]; //x is fixed
-	ball_centre[2] = base_pendulum[2] - (string_len + basketball_radius) * sin(theta);
-	ball_centre[3] = base_pendulum[3] - (string_len + basketball_radius) * cos(theta);
+	sim_ball_state.x[1] = base_pendulum[1]; //x is fixed
+	sim_ball_state.x[2] = base_pendulum[2] - (string_len + basketball_radius) * sin(theta);
+	sim_ball_state.x[3] = base_pendulum[3] - (string_len + basketball_radius) * cos(theta);
+	sim_ball_state.xd[1] = 0.0;
+	sim_ball_state.xd[2] = -(string_len + basketball_radius) * cos(theta) * theta_dot;
+	sim_ball_state.xd[3] = (string_len + basketball_radius) * sin(theta) * theta_dot;
 
 	ball_obs.status = TRUE;
 	for (i = 0; i < 3; i++) {
-		ball_obs.pos[i] = ball_centre[i+1];
+		ball_obs.pos[i] = sim_ball_state.x[i+1];
 	}
 
 	last_time = servo_time;
@@ -84,6 +87,7 @@ static int simulate_ball(void) {
 static int init_basketball_task(void) {
 
 	bzero((char *)&(ball_obs), sizeof(ball_obs));
+	bzero((char *)&(sim_ball_state), sizeof(sim_ball_state));
 	start_time = servo_time;
 
 	// Set the ball speed
@@ -102,6 +106,7 @@ static int run_basketball_task(void) {
 	int i, j;
 
 	simulate_ball();
+	//cheat(joint_state, &sim_ball_state, joint_des_state);
 	play(joint_state, &ball_obs, joint_des_state); // basketball lib generates trajectories for touching the ball
 
 	check_range(joint_des_state); // Check if the trajectory is safe

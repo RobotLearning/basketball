@@ -40,7 +40,7 @@ INCLUDES               = -I../src \
                          -I/usr/X11/include \
                          -I/usr/local/glut/include \
                          -I/usr/include/flycapture \
-                         -I$(HOME)/basketball/include
+			-I$(HOME)/basketball/include
 ifeq ($(USE_DEBUG),TRUE)
 CFLAGS                 = $(DEBUG_CC_FLAGS) $(INCLUDES) -D$(MACHTYPE)
 else
@@ -49,36 +49,24 @@ endif
 SRCDIR                 = ../src
 LIBDIR                 = $(MY_LIBDIR)/$(MACHTYPE) \
                          -lflycapture${D}
-HEADERDIR              = $(MY_INCLUDES)
+HEADERDIR              = $(MY_INCLUDES)	
 LDFLAGS                = -L$(MY_LIBDIR)/$(MACHTYPE) $(LAB_LIBDIR) -L$(HOME)/basketball/lib
 LIBRARIES              = 
 BINDIR                 = .
 
-/*
-LIB_TASK      = -lcb_task -lcb -lSLtask -lSLcommon -lutility $(COMM_LIBRARIES) -lm -lflycapture -ljsw -Wl,--wrap=memcpy
-*/
-LIB_TASK      = -lcb_task -lcb -lSLtask -lSLcommon -lutility $(COMM_LIBRARIES) -lm -lbasket -lnlopt -lpthread
+LIB_TASK      = -lcb_task -lcb -lSLtask -lSLcommon -lutility $(COMM_LIBRARIES) -lbasket -lnlopt -lm -lpthread
 LIB_OPENGL    = -lcb_openGL -lcb -lSLopenGL -lSLcommon -lutility $(COMM_LIBRARIES) -lm  $(OPENGL_LIBRARIES)
 
 SRCS_XCB = initUserTasks.c \
 	sample_task.c \
 	ball_following_task.c \
-	basketball_task.c 
-/*
-           euler_angles.c \
-           cogJacobian.c \
-           sample_task.c
-*/
+	basketball_task.c
+
 
 OBJS_XCB = initUserTasks.o \
 	sample_task.o \
 	ball_following_task.o \
 	basketball_task.o
-/*
-           euler_angles.o \
-           cogJacobian.o \
-	   sample_task.o
-*/
 
 SRCS_XOPENGL  = initUserGraphics.c
 OBJS_XOPENGL  = initUserGraphics.o

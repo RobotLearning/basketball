@@ -139,9 +139,9 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 
 	if (opt.reset) {
 		for (int i = 0; i < NDOF_ACTIVE; i++) {
-			qact.q(i) = joint_state[opt.active_dofs(i)+1].th;
-			qact.qd(i) = joint_state[opt.active_dofs(i)+1].thd;
-			qact.qdd(i) = joint_state[opt.active_dofs(i)+1].thdd;
+			qdes.q(i) = q0(i) = joint_state[opt.active_dofs(i)+1].th;
+			qdes.qd(i) = 0.0;
+			qdes.qdd(i) = 0.0;
 		}
 		delete robot;
 		opt.detach = true;
