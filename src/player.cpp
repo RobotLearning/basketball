@@ -431,8 +431,8 @@ bool update_next_state(const spline_params & poly,
 		t = 0.0;
 		flag = false;
 		qdes.q = q_rest_des;
-		qdes.qd = zeros<vec>(NDOF);
-		qdes.qdd = zeros<vec>(NDOF);
+		qdes.qd = zeros<vec>(NDOF_ACTIVE);
+		qdes.qdd = zeros<vec>(NDOF_ACTIVE);
 	}
 	return flag;
 }
@@ -467,7 +467,7 @@ EKF init_filter(const double var_model, const double var_noise) {
  */
 vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 
-	const vec3 base_pendulum = {0.0, 0.9, 0.9};
+	const vec3 base_pendulum = {0.0, 0.9, 1.0};
 	const double string_len = 1.0;
 	const double basketball_radius = 0.1213;
 	const double gravity = -9.8;

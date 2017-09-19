@@ -7,7 +7,7 @@ CC=g++
 LIBS=-larmadillo -lm
 FLAGS=-I$(HEADER) -pthread -std=c++11
 RELEASE=-O3 -DNDEBUG
-DEBUG=-DDEBUG -g -Wall -pedantic -Wextra -Weffc++	
+DEBUG=-DDEBUG -g -Wall -pedantic -Wextra #-Weffc++	
 SHARED_OBJ=$(LIBDIR)/libbasket.so
 OBJDIR=$(DIR)/obj
 SRCS=$(wildcard $(DIR)/src/*.cpp $(DIR)/src/*.c)

@@ -42,7 +42,7 @@ inline void init_default_posture(vec & q0) {
  */
 inline void init_default_basketball(vec6 & ball_state) {
 	ball_state.zeros();
-	const vec3 base_pendulum = {0.00, 0.9, 0.9};
+	const vec3 base_pendulum = {0.00, 0.9, 1.0};
 	const double string_len = 1.0;
 	const double basketball_radius = 0.1213;
 	double theta_init = -45.0 * (PI/180.0);
@@ -52,10 +52,10 @@ inline void init_default_basketball(vec6 & ball_state) {
 }
 
 /*
- * Testing Basketball player touching a ball
+ * Testing the optimization of a Basketball player touching a ball
  * attached to a string (moving in 2d: y and z axis)
  */
-BOOST_AUTO_TEST_CASE(test_touch_basketball) {
+BOOST_AUTO_TEST_CASE(test_optim) {
 
 	BOOST_TEST_MESSAGE("Testing if robot can touch the basketball...");
 	int N = 1000;
@@ -90,4 +90,74 @@ BOOST_AUTO_TEST_CASE(test_touch_basketball) {
 	bool update = opt.get_params(qact,poly);
 
 	BOOST_TEST(update);
+}
+
+/*
+ * Testing whether the ball can be touched
+ */
+BOOST_AUTO_TEST_CASE(test_touch) {
+
+	BOOST_TEST_MESSAGE("Testing if the ball can be touched...");
+
+	arma_rng::set_seed_random();
+	//arma_rng::set_seed(5);
+
+	int N = 1000;
+	joint qact;
+	joint qdes;
+	vec6 ball_state;
+	vec3 ball_obs;
+	double pos[NCART];
+	ivec active_dofs = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
+	init_default_basketball(ball_state);
+	init_default_posture(qact.q);
+	EKF filter = init_filter();
+	player_flags flags;
+	Player robot = Player(qact.q,filter,flags);
+	mat66 P; P.eye();
+	filter.set_prior(ball_state,P);
+	mat balls_pred = filter.predict_path(DT,N);
+	qdes.q = qact.q;
+	mat xdes = zeros<mat>(NCART,N);
+
+	for (int i = 0; i < N; i++) {
+
+		// move the ball
+		ball_obs = balls_pred.col(i).head(3);
+
+		// play
+		robot.play(qact, ball_obs, qdes);
+		//robot.cheat(qact, balls_pred.col(i), qdes);
+
+		// get cartesian state
+		get_position(active_dofs,qdes.q.memptr(),pos);
+		xdes(0,i) = pos[0];
+		xdes(1,i) = pos[1];
+		xdes(2,i) = pos[2];
+
+		//usleep(DT*1e6);
+		qact.q = qdes.q;
+		qact.qd = qdes.qd;
+	}
+
+	// test for intersection on Cartesian space
+	balls_pred.save("balls_pred.txt",csv_ascii);
+	xdes.save("robot_cart.txt",csv_ascii);
+}
+
+/*
+ * Testing if the kinematics was copied correctly from SL
+ */
+BOOST_AUTO_TEST_CASE(test_kinematics) {
+
+	BOOST_TEST_MESSAGE("Testing kinematics close to default posture...");
+	ivec active_dofs = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
+	double q_active[NDOF_ACTIVE] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004};
+	double pos[NCART];
+	double pos_des[NCART] = {0.272,0.336,0.179};
+
+	get_position(active_dofs,q_active,pos);
+	BOOST_TEST(pos[0] == pos_des[0],boost::test_tools::tolerance(0.01));
+	BOOST_TEST(pos[1] == pos_des[1],boost::test_tools::tolerance(0.01));
+	BOOST_TEST(pos[2] == pos_des[2],boost::test_tools::tolerance(0.01));
 }

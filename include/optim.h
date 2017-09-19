@@ -119,7 +119,7 @@ public:
 	double qrest[NDOF_ACTIVE] = {0.0}; //!< FIXED Resting posture for optimizers to compute return traj.
 	double q0[NDOF_ACTIVE] = {0.0}; //!< Initial joint state needed to compute traj. acc.
 	double q0dot[NDOF_ACTIVE] = {0.0}; //!< Initial joint velocities needed to compute traj. acc.
-	double time2return = 1.0; //!< FIXED Time to return
+	double time2return = 0.5; //!< FIXED Time to return
 	Optim();
 	Optim(const vec7 & qrest, const ivec & active_dofs);
 	bool check_update();
