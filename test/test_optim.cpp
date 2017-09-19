@@ -141,14 +141,23 @@ BOOST_AUTO_TEST_CASE(test_touch) {
 	}
 
 	// test for intersection on Cartesian space
-	balls_pred.save("balls_pred.txt",csv_ascii);
-	xdes.save("robot_cart.txt",csv_ascii);
+	//balls_pred.save("balls_pred.txt",csv_ascii);
+	//xdes.save("robot_cart.txt",csv_ascii);
+
+	// find the closest point between two curves
+	mat err = xdes - balls_pred.rows(0,2);
+	rowvec errnorms = sqrt(sum(err % err,0));
+	uword idx = index_min(errnorms);
+	BOOST_TEST_MESSAGE("Minimum dist between ball and robot: \n" << errnorms(idx));
+	BOOST_TEST(errnorms(idx) < 0.1); // distance should be less than 10 cm
 }
 
 /*
  * Testing if the kinematics was copied correctly from SL
  */
 BOOST_AUTO_TEST_CASE(test_kinematics) {
+
+	// TODO: Could it be that the difference in default postures causes not-so-small deviations?
 
 	BOOST_TEST_MESSAGE("Testing kinematics close to default posture...");
 	ivec active_dofs = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};

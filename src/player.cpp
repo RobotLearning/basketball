@@ -471,7 +471,7 @@ vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 	const double string_len = 1.0;
 	const double basketball_radius = 0.1213;
 	const double gravity = -9.8;
-	const double friction = 0.03;
+	const double friction = 0.00;
 
 	vec3 ball_pos = xnow.head(3);
 	vec3 ball_vel = xnow.tail(3);
