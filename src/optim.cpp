@@ -381,14 +381,15 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 }
 
 /*
- * This is the constraint that makes sure we hit the ball
+ * This is the constraint that makes sure we hit/touch the ball
  */
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *my_function_data) {
 
 	static double des_pos[NCART];
 	static double des_vel[NCART];
-	static double pos[NCART];
+	static double pos_right[NCART];
+	static double pos_left[NCART];
 	static double qfdot[NDOF_ACTIVE];
 	static double vel[NCART];
 	static double qf[NDOF_ACTIVE];
@@ -424,11 +425,12 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	}
 
 	// compute the actual racket pos,vel and normal
-	get_position(opt->active_dofs,qf,pos);
+	get_position(opt->active_dofs,qf,pos_left,pos_right);
 
 	// deviations from the desired racket frame
 	for (int i = 0; i < NCART; i++) {
-		result[i] = pos[i] - des_pos[i];
+		result[i] = pos_left[i] - des_pos[i];
+		result[i+NCART] = pos_right[i] - des_pos[i];
 	}
 }
 

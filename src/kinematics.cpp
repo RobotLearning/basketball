@@ -40,9 +40,10 @@ static void read_default_state(vec & q_default);
  * @brief Returns the cartesian endeffector positions
  */
 void get_position(const ivec & active_dofs, const double q_active[NDOF_ACTIVE],
-		          double pos[NCART]) {
+		          double pos_left[NCART], double pos_right[NCART]) {
 
 	const int RIGHT_HAND = R_WAA;
+	const int LEFT_HAND = L_WAA + 1;
 	static double link[NLINK+1][3+1];
 	static double origin[NDOF+1][3+1];
 	static double axis[NDOF+1][3+1];
@@ -60,7 +61,8 @@ void get_position(const ivec & active_dofs, const double q_active[NDOF_ACTIVE],
 
 	kinematics(q.memptr(),link,origin,axis,amats);
 	for (int i = 0; i < NCART; i++) {
-		pos[i] = link[RIGHT_HAND][i+1];
+		pos_right[i] = link[RIGHT_HAND][i+1];
+		pos_left[i] = link[LEFT_HAND][i+1];
 		//normal[i] = amats[PALM][i+1][2];
 	}
 }

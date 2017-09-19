@@ -17,11 +17,11 @@
 #include <thread>
 #include <math.h>
 #include <nlopt.h>
-#include "string.h" //for bzero
+#include "string.h"
 #include "constants.h"
 
 // defines
-const int EQ_CONSTR_DIM = NCART;
+const int EQ_CONSTR_DIM = NARMS_ACTIVE * NCART;
 const int INEQ_CONSTR_DIM = 2*NDOF_ACTIVE + 2*NDOF_ACTIVE; // both strike and returning trajectories, min and max
 const double MAX_VEL = 10;
 const double MAX_ACC = 200;

@@ -15,6 +15,9 @@
 
 #include <string>
 #include <vector>
+#include <armadillo>
+
+using namespace arma;
 
 // indices for simplifying code comprehension
 #define X 0
@@ -26,50 +29,12 @@
 #define DZ 5
 
 const std::vector<std::string> joint_names = {
-			{"L_SFE"},
-			{"L_SAA"},
-			{"L_HR"},
-			{"L_EB"},
-			{"L_WR"},
-			{"L_WFE"},
-			{"L_WAA"},
-
-			{"R_SFE"},
-			{"R_SAA"},
-			{"R_HR"},
-			{"R_EB"},
-			{"R_WR"},
-			{"R_WFE"},
-			{"R_WAA"},
-
-			{"L_HFE"},
-			{"L_HAA"},
-			{"L_HFR"},
-			{"L_KFE"},
-			{"L_AR"},
-			{"L_AFE"},
-			{"L_AAA"},
-
-			{"R_HFE"},
-			{"R_HAA"},
-			{"R_HFR"},
-			{"R_KFE"},
-			{"R_AR"},
-			{"R_AFE"},
-			{"R_AAA"},
-
-			{"B_TR"},
-			{"B_TAA"},
-			{"B_TFE"},
-
-			{"B_HN"},
-			{"B_HT"},
-			{"B_HR"},
-
-			{"R_EP"},
-			{"R_ET"},
-			{"L_EP"},
-			{"L_ET"},
+		{"L_SFE"},{"L_SAA"},{"L_HR"},{"L_EB"},{"L_WR"},{"L_WFE"},{"L_WAA"}, // left arm
+		{"R_SFE"},{"R_SAA"},{"R_HR"},{"R_EB"},{"R_WR"},{"R_WFE"},{"R_WAA"}, // right arm
+		{"L_HFE"},{"L_HAA"},{"L_HFR"},{"L_KFE"},{"L_AR"},{"L_AFE"},{"L_AAA"}, // left foot
+		{"R_HFE"},{"R_HAA"},{"R_HFR"},{"R_KFE"},{"R_AR"},{"R_AFE"},{"R_AAA"}, // right foot
+		{"B_TR"},{"B_TAA"},{"B_TFE"},{"B_HN"},{"B_HT"},{"B_HR"}, // body?
+		{"R_EP"},{"R_ET"},{"L_EP"},{"L_ET"}, // eyes?
 };
 
 /*! define the DOFs of this robot */
@@ -134,10 +99,14 @@ enum RobotEndeffectors {
 	N_MAX_ENDEFFECTORS
 };
 
+const ivec RIGHT_ARM = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
+const ivec LEFT_ARM = {L_SFE, L_SAA, L_HR, L_EB, L_WR, L_WFE, L_WAA};
+
 const int NCART = 3;
 const int NQUAT = 4;
 const int NDOF = N_MAX_DOFS;
-const int NDOF_ACTIVE = 7;
+const int NARMS_ACTIVE = 2;
+const int NDOF_ACTIVE = 7 * NARMS_ACTIVE;
 const int NBLOBS = 6;
 const int NLINK = N_MAX_DOFS;
 const int NENDEFF = N_MAX_ENDEFFECTORS;

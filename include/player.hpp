@@ -37,12 +37,12 @@ struct player_flags {
 	int freq_mpc = 1; //!< frequency of mpc updates if turned on
 	int min_obs = 5; //!< number of observations to initialize filter
 	double time_land_des = 0.8; //!< desired ball time
-	double time2return = 1.0; //!< time to return to starting posture after hit
+	double time2return = 0.5; //!< time to return to starting posture after hit
 	double var_noise = 0.001; //!< variance of noise process (R)
 	double var_model = 0.001; //!< variance of process noise (Q)
 	double t_reset_thresh = 0.3; //!< resetting Kalman filter after this many seconds pass without getting valid obs.
 	vec3 ball_des = zeros<vec>(3); // desired ball position
-	ivec active_dofs = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
+	ivec active_dofs = RIGHT_ARM;
 };
 
 /**
