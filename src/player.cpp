@@ -52,7 +52,7 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
 	//load_lookup_table(lookup_table);
 
-	opt = new Optim(q0, flags.active_dofs);
+	opt = new Optim(q0, flags.active_dofs,true);
 	opt->set_return_time(pflags.time2return);
 	opt->set_verbose(pflags.verbosity > 1);
 	opt->set_detach(pflags.detach);
@@ -250,7 +250,7 @@ void Player::optim_param(const joint & qact) {
  */
 bool Player::check_update(const joint & qact) const {
 
-	static int firsttime = true;
+	static bool firsttime = true;
 	static int counter;
 	static vec6 state_last = zeros<vec>(6);
 	static wall_clock timer;

@@ -30,7 +30,7 @@ static void first_order_hold(const optim_des* data, const double T, double ball_
  * @param lb_ Fixed joint lower limits
  * @param ub_ Fixed joint upper limits
  */
-Optim::Optim(const vec7 & qrest_, const ivec & active_dofs_) {
+Optim::Optim(const vec & qrest_, const ivec & active_dofs_, const bool right) : qrest(qrest_), right_arm(right) {
 
 	double tol_eq[EQ_CONSTR_DIM];
 	double tol_ineq[INEQ_CONSTR_DIM];
@@ -49,10 +49,6 @@ Optim::Optim(const vec7 & qrest_, const ivec & active_dofs_) {
 	nlopt_set_min_objective(opt, costfunc, this);
 	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
 	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this, tol_eq);
-
-	for (int i = 0; i < NDOF_ACTIVE; i++) {
-		qrest[i] = qrest_(i);
-	}
 }
 
 /**
@@ -142,21 +138,21 @@ bool Optim::get_params(const joint & qact, spline_params & p) {
 
 	bool flag = false;
 	if (update && !running) {
-		vec7 qf_, qfdot_, qrest_;
+		vec qf_ = zeros<vec>(NDOF_ACTIVE);
+		vec qfdot_ = zeros<vec>(NDOF_ACTIVE);
 		for (int i = 0; i < NDOF_ACTIVE; i++) {
 			qf_(i) = qf[i];
 			qfdot_(i) = qfdot[i];
-			qrest_(i) = qrest[i];
 		}
-		vec7 qnow = qact.q;
-		vec7 qdnow = qact.qd;
+		vec qnow = qact.q;
+		vec qdnow = qact.qd;
 		p.a.col(0) = 2.0 * (qnow - qf_) / pow(T,3) + (qfdot_ + qdnow) / pow(T,2);
 		p.a.col(1) = 3.0 * (qf_ - qnow) / pow(T,2) - (qfdot_ + 2.0*qdnow) / T;
 		p.a.col(2) = qdnow;
 		p.a.col(3) = qnow;
 		//cout << "A = \n" << p.a << endl;
-		p.b.col(0) = 2.0 * (qf_ - qrest_) / pow(time2return,3) + (qfdot_) / pow(time2return,2);
-		p.b.col(1) = 3.0 * (qrest_ - qf_) / pow(time2return,2) - (2.0*qfdot_) / time2return;
+		p.b.col(0) = 2.0 * (qf_ - qrest) / pow(time2return,3) + (qfdot_) / pow(time2return,2);
+		p.b.col(1) = 3.0 * (qrest - qf_) / pow(time2return,2) - (2.0*qfdot_) / time2return;
 		p.b.col(2) = qfdot_;
 		p.b.col(3) = qf_;
 		p.time2hit = T;
@@ -174,10 +170,8 @@ bool Optim::get_params(const joint & qact, spline_params & p) {
  * that optimizes for the resting posture, notify the optim classes
  * @param q_rest_new
  */
-void Optim::update_rest_state(const vec7 & q_rest_new) {
-
-	for (int i = 0; i < NDOF_ACTIVE; i++)
-		qrest[i] = q_rest_new(i);
+void Optim::update_rest_state(const vec & q_rest_new) {
+	qrest = q_rest_new;
 }
 
 /**
@@ -278,7 +272,7 @@ void Optim::init_rest_soln(double x[]) const {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF_ACTIVE; i++) {
-		x[i] = qrest[i];
+		x[i] = qrest(i);
 		x[i+NDOF_ACTIVE] = 0.0;
 	}
 	x[2*NDOF_ACTIVE] = 0.5;
@@ -429,8 +423,10 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 
 	// deviations from the desired racket frame
 	for (int i = 0; i < NCART; i++) {
-		result[i] = pos_left[i] - des_pos[i];
-		result[i+NCART] = pos_right[i] - des_pos[i];
+		if (opt->right_arm)
+			result[i] = pos_right[i] - des_pos[i];
+		else
+			result[i] = pos_left[i] - des_pos[i];
 	}
 }
 
@@ -486,16 +482,15 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 	static double a2[NDOF_ACTIVE];
 	static double a1ret[NDOF_ACTIVE]; // coefficients for the returning polynomials
 	static double a2ret[NDOF_ACTIVE];
-	static double qdot_rest[NDOF_ACTIVE];
 	static double joint_strike_max_cand[NDOF_ACTIVE];
 	static double joint_strike_min_cand[NDOF_ACTIVE];
 	static double joint_return_max_cand[NDOF_ACTIVE];
 	static double joint_return_min_cand[NDOF_ACTIVE];
+	static vec qdot_rest = zeros<vec>(NDOF_ACTIVE);
 
 	Optim *opt = (Optim*) my_func_params;
 	double *q0 = opt->q0;
 	double *q0dot = opt->q0dot;
-	double *qrest = opt->qrest;
 	double Tret = opt->time2return;
 
 	if (grad) {
@@ -517,7 +512,7 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 
 	// calculate the polynomial coeffs which are used for checking joint limits
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2);
-	calc_return_poly_coeff(qrest,qdot_rest,x,Tret,a1ret,a2ret);
+	calc_return_poly_coeff(opt->qrest,qdot_rest,x,Tret,a1ret,a2ret);
 	// calculate the candidate extrema both for strike and return
 	calc_strike_extrema_cand(a1,a2,x[2*NDOF_ACTIVE],q0,q0dot,
 			joint_strike_max_cand,joint_strike_min_cand);
@@ -556,13 +551,13 @@ void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double 
  * and time to return constant T
  * p(t) = a1*t^3 + a2*t^2 + a3*t + a4
  */
-void calc_return_poly_coeff(const double *q0, const double *q0dot,
+void calc_return_poly_coeff(const vec & qrest, const vec & q0dot,
 		                    const double *x, const double T,
 		                    double *a1, double *a2) {
 
 	for (int i = 0; i < NDOF_ACTIVE; i++) {
-		a1[i] = (2/pow(T,3))*(x[i]-q0[i]) + (1/(T*T))*(q0dot[i] + x[i+NDOF_ACTIVE]);
-		a2[i] = (3/(T*T))*(q0[i]-x[i]) - (1/T)*(2*x[i+NDOF_ACTIVE] + q0dot[i]);
+		a1[i] = (2/pow(T,3))*(x[i]-qrest(i)) + (1/(T*T))*(q0dot(i) + x[i+NDOF_ACTIVE]);
+		a2[i] = (3/(T*T))*(qrest(i)-x[i]) - (1/T)*(2*x[i+NDOF_ACTIVE] + q0dot(i));
 	}
 
 }
