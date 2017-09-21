@@ -55,10 +55,9 @@ private:
 
 	// data fields
 	bool init_ball_state = false;
+	vec q_rest_des = zeros<vec>(NDOF_ACTIVE); // desired resting joint state
 	EKF & filter; // filter for the ball estimation
-	vec7 q_rest_des; // desired resting joint state
 	double t_obs = 0.0; // counting time stamps for resetting filter
-	double t_poly = 0.0; // time passed on the hitting spline
 	bool valid_obs = true; // ball observed is valid (new ball and not an outlier)
 	int num_obs = 0; // number of observations received
 	game game_state = AWAITING;

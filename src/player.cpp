@@ -238,12 +238,12 @@ void Player::optim_param(const joint & qact) {
 
 		opt_right->set_des_params(&pred_params);
 		opt_right->update_init_state(qact);
-		opt_right->set_verbose(true);
+		//opt_right->set_verbose(true);
 		opt_right->run();
 
 		opt_left->set_des_params(&pred_params);
 		opt_left->update_init_state(qact);
-		opt_left->set_verbose(true);
+		//opt_left->set_verbose(true);
 		opt_left->run();
 	}
 }
@@ -283,14 +283,14 @@ bool Player::check_update(const joint & qact) const {
 		update = !opt_left->check_update() && !opt_left->check_running() &&
 				 !opt_right->check_update() && !opt_right->check_running();
 		// ball is incoming
-		if (pflags.mpc) {// && t_poly > 0.0) {
+		if (pflags.mpc) {
 			activate = (!pflags.detach) ? counter % 5 == 0 :
 					                        timer.toc() > (1.0/pflags.freq_mpc);
 			incoming = state_est(Y) > state_last(Y);
 			update = update && valid_obs && activate && feasible && incoming;
 		}
 		else {
-			update = update && (t_poly == 0.0) && feasible; // only once
+			update = update && (poly_left.t == 0.0) && (poly_right.t == 0) && feasible; // only once
 		}
 		state_last = state_est;
 		if (update) {
@@ -318,21 +318,31 @@ bool Player::check_update(const joint & qact) const {
 void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	// this should be only for MPC?
-	if (opt_right->get_params(qact,poly_right) && opt_left->get_params(qact,poly_left)) {
+	if (opt_right->get_params(qact,poly_right)) {
 		if (pflags.verbosity) {
-			std::cout << "Launching/updating strike" << std::endl;
+			std::cout << "Launching/updating movement for RIGHT ARM" << std::endl;
+		}
+		poly_right.t = DT;
+		opt_right->set_moving(true);
+
+	}
+
+	// this should be only for MPC?
+	if (opt_left->get_params(qact,poly_left)) {
+		if (pflags.verbosity) {
+			std::cout << "Launching/updating movement for LEFT ARM" << std::endl;
 		}
 		poly_left.t = DT;
-		poly_right.t = DT;
 		opt_left->set_moving(true);
-		opt_right->set_moving(true);
 	}
 
 	// make sure we update after optim finished
-	if (t_poly > 0.0) {
+	if (poly_left.t > 0.0 ) {
 		if (!update_next_state(q_rest_des,pflags.time2return,false,poly_left,qdes)) {
 			opt_left->set_moving(false);
 		}
+	}
+	if (poly_right.t > 0.0 ) {
 		if (!update_next_state(q_rest_des,pflags.time2return,true,poly_right,qdes)) {
 			opt_right->set_moving(false);
 		}
@@ -449,7 +459,10 @@ bool update_next_state(const vec & q_rest_des,
 		//printf("Hitting finished!\n");
 		poly.t = 0.0;
 		flag = false;
-		q = q_rest_des;
+		if (right_arm)
+			q = q_rest_des.tail(NDOF_OPT);
+		else
+			q = q_rest_des.head(NDOF_OPT);
 		qd = zeros<vec>(NDOF_OPT);
 		qdd = zeros<vec>(NDOF_OPT);
 	}

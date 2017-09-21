@@ -65,7 +65,6 @@ BOOST_AUTO_TEST_CASE(test_optim) {
 	vec q0 = zeros<vec>(NDOF_OPT);
 	joint qact;
 	spline_params poly;
-	ivec active_dofs;
 	init_default_basketball(ball_state);
 	init_default_posture(true,q0);
 	qact.q = join_vert(q0,q0);
@@ -78,19 +77,22 @@ BOOST_AUTO_TEST_CASE(test_optim) {
 	params.ball_pos = balls_pred.rows(X,Z);
 	params.ball_vel = balls_pred.rows(DX,DZ);
 
+	BOOST_TEST_MESSAGE("On the left side...");
+	Optim opt_left = Optim(q0,false);
+	opt_left.set_des_params(&params);
+	opt_left.update_init_state(qact);
+	opt_left.run();
+	bool update_right_side = opt_left.get_params(qact,poly);
+
 	// right side
-	Optim opt = Optim(q0,true);
-	opt.set_des_params(&params);
-	opt.update_init_state(qact);
-	opt.run();
-	bool update_right_side = opt.get_params(qact,poly);
+	BOOST_TEST_MESSAGE("On the right side...");
+	Optim opt_right = Optim(q0,true);
+	opt_right.set_des_params(&params);
+	opt_right.update_init_state(qact);
+	opt_right.run();
 
 	// left side
-	opt = Optim(q0,false);
-	opt.set_des_params(&params);
-	opt.update_init_state(qact);
-	opt.run();
-	bool update_left_side = opt.get_params(qact,poly);
+	bool update_left_side = opt_right.get_params(qact,poly);
 	BOOST_TEST(update_right_side);
 	BOOST_TEST(update_left_side);
 }
@@ -115,15 +117,17 @@ BOOST_AUTO_TEST_CASE(test_touch) {
 	ivec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
 	init_default_basketball(ball_state);
 	init_default_posture(true,q0);
+	qdes.q = join_vert(q0,q0);
+	qact.q = qdes.q;
 	EKF filter = init_filter();
 	player_flags flags;
 	flags.active_dofs = active_dofs;
 	flags.detach = false;
+	flags.verbosity = 2;
 	Player robot = Player(qact.q,filter,flags);
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
 	mat balls_pred = filter.predict_path(DT,N);
-	qdes.q = qact.q = join_vert(q0,q0);
 	mat xdes = zeros<mat>(2*NCART,N);
 
 	for (int i = 0; i < N; i++) {
@@ -150,8 +154,8 @@ BOOST_AUTO_TEST_CASE(test_touch) {
 	}
 
 	// test for intersection on Cartesian space
-	//balls_pred.save("balls_pred.txt",csv_ascii);
-	//xdes.save("robot_cart.txt",csv_ascii);
+	balls_pred.save("balls_pred.txt",csv_ascii);
+	xdes.save("robot_cart.txt",csv_ascii);
 
 	// find the closest point between two curves
 	mat err = xdes.rows(0,2) - balls_pred.rows(0,2);
