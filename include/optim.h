@@ -22,7 +22,7 @@
 
 // defines
 const int EQ_CONSTR_DIM = NCART;
-const int INEQ_CONSTR_DIM = 2*NDOF_ACTIVE + 2*NDOF_ACTIVE; // both strike and returning trajectories, min and max
+const int INEQ_CONSTR_DIM = 2*NDOF_OPT + 2*NDOF_OPT; // both strike and returning trajectories, min and max
 const double MAX_VEL = 10;
 const double MAX_ACC = 200;
 
@@ -52,9 +52,10 @@ struct optim_des {
  * it has terminated (running is FALSE), then player class can update trajectories.
  */
 struct spline_params {
+	double t = 0.0; //!< actual time on the trajectory
 	double time2hit = 1.0; //!< free-final time (for hitting ball)
-	mat a = zeros<mat>(NDOF_ACTIVE,4); //!< strike poly params of 3rd order
-	mat b = zeros<mat>(NDOF_ACTIVE,4); //!< return poly params of 3rd order
+	mat a = zeros<mat>(NDOF_OPT,4); //!< strike poly params of 3rd order
+	mat b = zeros<mat>(NDOF_OPT,4); //!< return poly params of 3rd order
 };
 
 /**
@@ -77,7 +78,7 @@ struct joint {
  * successful returns in real robot experiments.
  */
 struct weights {
-	double R_strike[NDOF_ACTIVE] = {0.0}; //!< acceleration weights for running cost
+	double R_strike[NDOF_OPT] = {0.0}; //!< acceleration weights for running cost
 	double R_hit = 0.0; //!< weight of dist from racket centre to hit location
 };
 
@@ -91,7 +92,7 @@ struct weights {
 class Optim {
 
 protected:
-	static const int OPTIM_DIM = 2*NDOF_ACTIVE + 1; //!< dim. of optim problem
+	static const int OPTIM_DIM = 2*NDOF_OPT + 1; //!< dim. of optim problem
 	bool lookup = false; //!< use lookup table methods to init. optim params.
 	bool verbose = true; //!< verbose output printed
 	bool moving = false; //!< robot is already moving so use last computed values to init.
@@ -100,8 +101,8 @@ protected:
 	bool detach = false; //!< detach optim in another thread
 	nlopt_opt opt; //!< optimizer from NLOPT library
 
-	double qf[NDOF_ACTIVE] = {0.0}; //!< saved joint positions after optim
-	double qfdot[NDOF_ACTIVE] = {0.0}; //!< saved joint velocities after optim
+	double qf[NDOF_OPT] = {0.0}; //!< saved joint positions after optim
+	double qfdot[NDOF_OPT] = {0.0}; //!< saved joint velocities after optim
 	double T = 1.0; //!< saved hitting time after optim terminates
 
 	void init_last_soln(double *x) const;
@@ -112,19 +113,18 @@ protected:
 	void optim();
 public:
 	bool right_arm = true; //!< optimize the right arm if TRUE, left arm if FALSE
-	ivec active_dofs;
+	ivec active_dofs = zeros<ivec>(NDOF_OPT);
 	optim_des *param_des; //!< Desired racket and/or ball predicted vals.
-	vec lb = zeros<vec>(2*NDOF_ACTIVE+1); //!< Joint lower limits, joint vel. lower limit and min. hitting time
-	vec ub = zeros<vec>(2*NDOF_ACTIVE+1); //!< Joint upper limits, joint vel. upper limit and max. hitting time
+	vec lb = zeros<vec>(2*NDOF_OPT+1); //!< Joint lower limits, joint vel. lower limit and min. hitting time
+	vec ub = zeros<vec>(2*NDOF_OPT+1); //!< Joint upper limits, joint vel. upper limit and max. hitting time
 	vec qrest; //!< Resting posture for optimizers to compute return traj.
-	double q0[NDOF_ACTIVE] = {0.0}; //!< Initial joint state needed to compute traj. acc.
-	double q0dot[NDOF_ACTIVE] = {0.0}; //!< Initial joint velocities needed to compute traj. acc.
+	double q0[NDOF_OPT] = {0.0}; //!< Initial joint state needed to compute traj. acc.
+	double q0dot[NDOF_OPT] = {0.0}; //!< Initial joint velocities needed to compute traj. acc.
 	double time2return = 0.5; //!< Desired time to return to resting state
 	Optim();
-	Optim(const vec & qrest, const ivec & active_dofs, const bool right);
+	Optim(const vec & qrest, const bool right);
 	bool check_update();
 	bool check_running();
-	void set_active_dofs(const ivec & act_dofs);
 	void set_moving(bool flag);
 	void set_detach(bool flag);
 	void set_verbose(bool flag);
@@ -153,9 +153,9 @@ void calc_strike_extrema_cand(const double *a1, const double *a2, const double T
 void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
-double calc_max_acc_violation(const double x[2*NDOF_ACTIVE+1],
-		const double q0[NDOF_ACTIVE],
-		const double q0dot[NDOF_ACTIVE]);
+double calc_max_acc_violation(const double x[2*NDOF_OPT+1],
+		const double q0[NDOF_OPT],
+		const double q0dot[NDOF_OPT]);
 
 // set upper and lower bounds for optimization
 void set_bounds(const ivec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub);

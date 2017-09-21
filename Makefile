@@ -15,10 +15,10 @@ OBJS=$(addsuffix .o,$(addprefix $(OBJDIR)/,$(basename $(notdir $(SRCS)))))
 #$(info $$OBJS is [${OBJS}])
 
 # for compiling everything, release and debug modes
-release: FLAGS += $(RELEASE)
-release: all
 debug: FLAGS += $(DEBUG)
 debug: all
+release: FLAGS += $(RELEASE)
+release: all
 
 
 all: $(SHARED_OBJ)

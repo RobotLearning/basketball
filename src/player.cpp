@@ -44,7 +44,7 @@ using namespace arma;
  * @param flags Flags/options for player class, initialized with c++11 (see player.hpp)
  *              or through player.cfg file (see sl_interface)
  */
-Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
+Player::Player(const vec & q0, EKF & filter_, player_flags & flags)
                : filter(filter_), pflags(flags) {
 
 	q_rest_des = q0;
@@ -52,10 +52,15 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
 	//load_lookup_table(lookup_table);
 
-	opt = new Optim(q0, flags.active_dofs,true);
-	opt->set_return_time(pflags.time2return);
-	opt->set_verbose(pflags.verbosity > 1);
-	opt->set_detach(pflags.detach);
+	opt_left = new Optim(q0.head(7), false);
+	opt_left->set_return_time(pflags.time2return);
+	opt_left->set_verbose(pflags.verbosity > 1);
+	opt_left->set_detach(pflags.detach);
+
+	opt_right = new Optim(q0.tail(7), true);
+	opt_right->set_return_time(pflags.time2return);
+	opt_right->set_verbose(pflags.verbosity > 1);
+	opt_right->set_detach(pflags.detach);
 }
 
 /*
@@ -66,7 +71,8 @@ Player::Player(const vec7 & q0, EKF & filter_, player_flags & flags)
  */
 Player::~Player() {
 
-	delete opt;
+	delete opt_left;
+	delete opt_right;
 }
 
 /**
@@ -229,10 +235,16 @@ void Player::optim_param(const joint & qact) {
 		pred_params.Nmax = (int)(time_pred/DT);
 		pred_params.ball_pos = balls_pred.rows(X,Z);
 		pred_params.ball_vel = balls_pred.rows(DX,DZ);
-		opt->set_des_params(&pred_params);
-		opt->update_init_state(qact);
-		opt->set_verbose(true);
-		opt->run();
+
+		opt_right->set_des_params(&pred_params);
+		opt_right->update_init_state(qact);
+		opt_right->set_verbose(true);
+		opt_right->run();
+
+		opt_left->set_des_params(&pred_params);
+		opt_left->update_init_state(qact);
+		opt_left->set_verbose(true);
+		opt_left->run();
 	}
 }
 
@@ -268,7 +280,8 @@ bool Player::check_update(const joint & qact) const {
 		state_est = filter.get_mean();
 		counter++;
 		feasible = (state_est(DY) >= 0.0);
-		update = !opt->check_update() && !opt->check_running();
+		update = !opt_left->check_update() && !opt_left->check_running() &&
+				 !opt_right->check_update() && !opt_right->check_running();
 		// ball is incoming
 		if (pflags.mpc) {// && t_poly > 0.0) {
 			activate = (!pflags.detach) ? counter % 5 == 0 :
@@ -305,18 +318,23 @@ bool Player::check_update(const joint & qact) const {
 void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	// this should be only for MPC?
-	if (opt->get_params(qact,poly)) {
+	if (opt_right->get_params(qact,poly_right) && opt_left->get_params(qact,poly_left)) {
 		if (pflags.verbosity) {
 			std::cout << "Launching/updating strike" << std::endl;
 		}
-		t_poly = DT;
-		opt->set_moving(true);
+		poly_left.t = DT;
+		poly_right.t = DT;
+		opt_left->set_moving(true);
+		opt_right->set_moving(true);
 	}
 
 	// make sure we update after optim finished
 	if (t_poly > 0.0) {
-		if (!update_next_state(poly,q_rest_des,pflags.time2return,t_poly,qdes)) {
-			opt->set_moving(false);
+		if (!update_next_state(q_rest_des,pflags.time2return,false,poly_left,qdes)) {
+			opt_left->set_moving(false);
+		}
+		if (!update_next_state(q_rest_des,pflags.time2return,true,poly_right,qdes)) {
+			opt_right->set_moving(false);
 		}
 	}
 
@@ -401,39 +419,52 @@ void estimate_ball_linear(const mat & observations,
  * @param qdes Update pos,vel,acc values of this desired joints structure
  * @return
  */
-bool update_next_state(const spline_params & poly,
-		           const vec7 & q_rest_des,
+bool update_next_state(const vec & q_rest_des,
 				   const double time2return,
-				   double & t,
+				   const bool right_arm,
+				   spline_params & poly,
 				   joint & qdes) {
 	mat a,b;
 	double tbar;
 	bool flag = true;
+	vec7 q, qd, qdd;
 
-	if (t <= poly.time2hit) {
+	if (poly.t <= poly.time2hit) {
 		a = poly.a;
-		qdes.q = a.col(0)*t*t*t + a.col(1)*t*t + a.col(2)*t + a.col(3);
-		qdes.qd = 3*a.col(0)*t*t + 2*a.col(1)*t + a.col(2);
-		qdes.qdd = 6*a.col(0)*t + 2*a.col(1);
-		t += DT;
+		q = a.col(0)*poly.t*poly.t*poly.t + a.col(1)*poly.t*poly.t + a.col(2)*poly.t + a.col(3);
+		qd = 3*a.col(0)*poly.t*poly.t + 2*a.col(1)*poly.t + a.col(2);
+		qdd = 6*a.col(0)*poly.t + 2*a.col(1);
+		poly.t += DT;
 		//cout << qdes.q << qdes.qd << qdes.qdd << endl;
 	}
-	else if (t <= poly.time2hit + time2return) {
+	else if (poly.t <= poly.time2hit + time2return) {
 		b = poly.b;
-		tbar = t - poly.time2hit;
-		qdes.q = b.col(0)*tbar*tbar*tbar + b.col(1)*tbar*tbar + b.col(2)*tbar + b.col(3);
-		qdes.qd = 3*b.col(0)*tbar*tbar + 2*b.col(1)*tbar + b.col(2);
-		qdes.qdd = 6*b.col(0)*tbar + 2*b.col(1);
-		t += DT;
+		tbar = poly.t - poly.time2hit;
+		q = b.col(0)*tbar*tbar*tbar + b.col(1)*tbar*tbar + b.col(2)*tbar + b.col(3);
+		qd = 3*b.col(0)*tbar*tbar + 2*b.col(1)*tbar + b.col(2);
+		qdd = 6*b.col(0)*tbar + 2*b.col(1);
+		poly.t += DT;
 	}
 	else {
 		//printf("Hitting finished!\n");
-		t = 0.0;
+		poly.t = 0.0;
 		flag = false;
-		qdes.q = q_rest_des;
-		qdes.qd = zeros<vec>(NDOF_ACTIVE);
-		qdes.qdd = zeros<vec>(NDOF_ACTIVE);
+		q = q_rest_des;
+		qd = zeros<vec>(NDOF_OPT);
+		qdd = zeros<vec>(NDOF_OPT);
 	}
+
+	if (right_arm) {
+		qdes.q.tail(NDOF_OPT) = q;
+		qdes.qd.tail(NDOF_OPT) = qd;
+		qdes.qdd.tail(NDOF_OPT) = qdd;
+	}
+	else {
+		qdes.q.head(NDOF_OPT) = q;
+		qdes.qd.head(NDOF_OPT) = qd;
+		qdes.qdd.head(NDOF_OPT) = qdd;
+	}
+
 	return flag;
 }
 

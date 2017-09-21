@@ -36,13 +36,11 @@ struct player_flags {
 	int verbosity = 0; //!< OFF, LOW, HIGH, ALL
 	int freq_mpc = 1; //!< frequency of mpc updates if turned on
 	int min_obs = 5; //!< number of observations to initialize filter
-	double time_land_des = 0.8; //!< desired ball time
 	double time2return = 0.5; //!< time to return to starting posture after hit
 	double var_noise = 0.001; //!< variance of noise process (R)
 	double var_model = 0.001; //!< variance of process noise (Q)
 	double t_reset_thresh = 0.3; //!< resetting Kalman filter after this many seconds pass without getting valid obs.
-	vec3 ball_des = zeros<vec>(3); // desired ball position
-	ivec active_dofs = RIGHT_ARM;
+	ivec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
 };
 
 /**
@@ -68,8 +66,10 @@ private:
 	optim_des pred_params;
 	mat observations; // for initializing filter
 	mat times; // for initializing filter
-	spline_params poly;
-	Optim *opt; // optimizer
+	spline_params poly_left;
+	spline_params poly_right;
+	Optim *opt_left; // optimizers
+	Optim *opt_right;
 
 	// ball estimation
 	void estimate_ball_state(const vec3 & obs);
@@ -83,7 +83,7 @@ private:
 
 public:
 
-	Player(const vec7 & q0, EKF & filter, player_flags & flags);
+	Player(const vec & q0, EKF & filter, player_flags & flags);
 	~Player();
 
 	// auxiliary function, public interface for filter test performance
@@ -112,9 +112,11 @@ bool check_reset_filter(const bool newball, const int verbose, const double thre
 bool check_new_obs(const vec3 & obs, double tol);
 
 // movement generation
-bool update_next_state(const spline_params & poly,
-		           const vec7 & q_rest_des,
-				   const double time2return, double & t_poly, joint & qdes);
+bool update_next_state(const vec & q_rest_des,
+				   const double time2return,
+				   const bool right_arm,
+				   spline_params & poly,
+				   joint & qdes);
 
 
 #endif /* PLAYER_HPP_ */

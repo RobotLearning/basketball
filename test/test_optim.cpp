@@ -26,7 +26,7 @@ using namespace arma;
 /*
  * Initialize default posture for CB only for the active joints
  */
-inline void init_default_posture(const bool right, vec & q0, ivec & active_dofs) {
+inline void init_default_posture(const bool right, vec & q0) {
 
 	q0(0) = 0.0;
 	q0(1) = -0.2;
@@ -35,13 +35,6 @@ inline void init_default_posture(const bool right, vec & q0, ivec & active_dofs)
 	q0(4) = 0.0;
 	q0(5) = 0.0;
 	q0(6) = 0.0;
-
-	if (right) {
-		active_dofs = RIGHT_ARM;
-	}
-	else {
-		active_dofs = LEFT_ARM;
-	}
 }
 
 /*
@@ -66,19 +59,16 @@ BOOST_AUTO_TEST_CASE(test_optim) {
 
 	BOOST_TEST_MESSAGE("Testing the optimization...");
 	int N = 1000;
-	bool right_side = true;
 	vec6 ball_state;
 	arma_rng::set_seed(1);
 	//arma_rng::set_seed_random();
-	vec lb = zeros<vec>(2*NDOF_ACTIVE+1);
-	vec ub = zeros<vec>(2*NDOF_ACTIVE+1);
-	vec q0 = zeros<vec>(NDOF_ACTIVE);
+	vec q0 = zeros<vec>(NDOF_OPT);
 	joint qact;
 	spline_params poly;
 	ivec active_dofs;
 	init_default_basketball(ball_state);
-	init_default_posture(right_side,q0,active_dofs);
-	qact.q = q0;
+	init_default_posture(true,q0);
+	qact.q = join_vert(q0,q0);
 	EKF filter = init_filter();
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
@@ -89,17 +79,16 @@ BOOST_AUTO_TEST_CASE(test_optim) {
 	params.ball_vel = balls_pred.rows(DX,DZ);
 
 	// right side
-	Optim opt = Optim(q0,active_dofs,right_side);
+	Optim opt = Optim(q0,true);
 	opt.set_des_params(&params);
 	opt.update_init_state(qact);
 	opt.run();
 	bool update_right_side = opt.get_params(qact,poly);
 
 	// left side
-	init_default_posture(!right_side,q0,active_dofs);
-	opt.update_rest_state(q0);
-	opt.set_active_dofs(active_dofs);
-	opt.right_arm = false;
+	opt = Optim(q0,false);
+	opt.set_des_params(&params);
+	opt.update_init_state(qact);
 	opt.run();
 	bool update_left_side = opt.get_params(qact,poly);
 	BOOST_TEST(update_right_side);
@@ -119,12 +108,13 @@ BOOST_AUTO_TEST_CASE(test_touch) {
 	int N = 1000;
 	joint qact;
 	joint qdes;
+	vec7 q0;
 	vec6 ball_state;
 	vec3 ball_obs;
 	double pos_left[NCART], pos_right[NCART];
-	ivec active_dofs;
+	ivec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
 	init_default_basketball(ball_state);
-	init_default_posture(true,qact.q,active_dofs);
+	init_default_posture(true,q0);
 	EKF filter = init_filter();
 	player_flags flags;
 	flags.active_dofs = active_dofs;
@@ -133,7 +123,7 @@ BOOST_AUTO_TEST_CASE(test_touch) {
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
 	mat balls_pred = filter.predict_path(DT,N);
-	qdes.q = qact.q;
+	qdes.q = qact.q = join_vert(q0,q0);
 	mat xdes = zeros<mat>(2*NCART,N);
 
 	for (int i = 0; i < N; i++) {

@@ -95,8 +95,10 @@ const ivec LEFT_ARM = {L_SFE, L_SAA, L_HR, L_EB, L_WR, L_WFE, L_WAA};
 
 const int NCART = 3;
 const int NQUAT = 4;
+const int NARMS_ACTIVE = 2;
 const int NDOF = N_MAX_DOFS;
-const int NDOF_ACTIVE = 7;
+const int NDOF_OPT = 7;
+const int NDOF_ACTIVE = NDOF_OPT * NARMS_ACTIVE;
 const int NBLOBS = 6;
 const int NLINK = N_MAX_DOFS;
 const int NENDEFF = N_MAX_ENDEFFECTORS;

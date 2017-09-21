@@ -39,7 +39,7 @@ static void read_default_state(vec & q_default);
 /**
  * @brief Returns the cartesian endeffector positions
  */
-void get_position(const ivec & active_dofs, const double q_active[NDOF_ACTIVE],
+void get_position(const ivec & active_dofs, const double q_active[],
 		          double pos_left[NCART], double pos_right[NCART]) {
 
 	const int RIGHT_HAND = R_WAA;
@@ -55,7 +55,7 @@ void get_position(const ivec & active_dofs, const double q_active[NDOF_ACTIVE],
 		read_default_state(q);
 		firsttime = false;
 	}
-	for (int i = 0; i < NDOF_ACTIVE; i++) {
+	for (int i = 0; i < active_dofs.n_elem; i++) {
 		q(active_dofs[i]) = q_active[i];
 	}
 

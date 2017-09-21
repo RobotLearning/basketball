@@ -56,7 +56,7 @@ struct blob_state {
 	double pos[NCART]; //!< ball center cartesian positions from cameras 1 and 2(after calibration)
 };
 
-player_flags opt; //!< global structure for setting Player options
+player_flags options; //!< global structure for setting Player options
 
 #include "sl_basketball_interface.h"
 
@@ -79,30 +79,30 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		  const blob_state *blobs,
 		  SL_DJstate joint_des_state[NDOF+1]) {
 
-	static vec7 q0;
 	static vec3 ball_obs;
+	static vec q0 = zeros<vec>(NDOF_ACTIVE);
 	static joint qact;
 	static joint qdes;
 	static Player *robot = nullptr; // pointer to player
 	static EKF filter = init_filter(0.001,0.001);
 
-	if (opt.reset) {
+	if (options.reset) {
 		for (int i = 0; i < NDOF_ACTIVE; i++) {
-			qdes.q(i) = q0(i) = joint_state[opt.active_dofs(i)+1].th;
+			qdes.q(i) = q0(i) = joint_state[options.active_dofs(i)+1].th;
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
 		filter = init_filter(0.3,0.001);
 		delete robot;
-		opt.detach = true;
-		robot = new Player(q0,filter,opt);
-		opt.reset = false;
+		options.detach = true;
+		robot = new Player(q0,filter,options);
+		options.reset = false;
 	}
 	else {
 		for (int i = 0; i < NDOF_ACTIVE; i++) {
-			qact.q(i) = joint_state[opt.active_dofs(i)+1].th;
-			qact.qd(i) = joint_state[opt.active_dofs(i)+1].thd;
-			qact.qdd(i) = joint_state[opt.active_dofs(i)+1].thdd;
+			qact.q(i) = joint_state[options.active_dofs(i)+1].th;
+			qact.qd(i) = joint_state[options.active_dofs(i)+1].thd;
+			qact.qdd(i) = joint_state[options.active_dofs(i)+1].thdd;
 		}
 		fuse_blobs(blobs,ball_obs);
 		robot->play(qact,ball_obs,qdes);
@@ -110,9 +110,9 @@ void play(const SL_Jstate joint_state[NDOF+1],
 
 	// update desired joint state
 	for (int i = 0; i < NDOF_ACTIVE; i++) {
-		joint_des_state[opt.active_dofs(i)+1].th = qdes.q(i);
-		joint_des_state[opt.active_dofs(i)+1].thd = qdes.qd(i);
-		joint_des_state[opt.active_dofs(i)+1].thdd = qdes.qdd(i);
+		joint_des_state[options.active_dofs(i)+1].th = qdes.q(i);
+		joint_des_state[options.active_dofs(i)+1].thd = qdes.qd(i);
+		joint_des_state[options.active_dofs(i)+1].thdd = qdes.qdd(i);
 	}
 }
 
@@ -137,22 +137,22 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 	static Player *robot = nullptr; // centered player
 	static EKF filter = init_filter(0.001,0.001);
 
-	if (opt.reset) {
+	if (options.reset) {
 		for (int i = 0; i < NDOF_ACTIVE; i++) {
-			qdes.q(i) = q0(i) = joint_state[opt.active_dofs(i)+1].th;
+			qdes.q(i) = q0(i) = joint_state[options.active_dofs(i)+1].th;
 			qdes.qd(i) = 0.0;
 			qdes.qdd(i) = 0.0;
 		}
 		delete robot;
-		opt.detach = true;
-		robot = new Player(q0,filter,opt);
-		opt.reset = false;
+		options.detach = true;
+		robot = new Player(q0,filter,options);
+		options.reset = false;
 	}
 	else {
 		for (int i = 0; i < NDOF_ACTIVE; i++) {
-			qact.q(i) = joint_state[opt.active_dofs(i)+1].th;
-			qact.qd(i) = joint_state[opt.active_dofs(i)+1].thd;
-			qact.qdd(i) = joint_state[opt.active_dofs(i)+1].thdd;
+			qact.q(i) = joint_state[options.active_dofs(i)+1].th;
+			qact.qd(i) = joint_state[options.active_dofs(i)+1].thd;
+			qact.qdd(i) = joint_state[options.active_dofs(i)+1].thdd;
 		}
 		for (int i = 0; i < NCART; i++) {
 			ball_state(i) = sim_ball_state->x[i+1];
@@ -163,9 +163,9 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 
 	// update desired joint state
 	for (int i = 0; i < NDOF_ACTIVE; i++) {
-		joint_des_state[opt.active_dofs(i)+1].th = qdes.q(i);
-		joint_des_state[opt.active_dofs(i)+1].thd = qdes.qd(i);
-		joint_des_state[opt.active_dofs(i)+1].thdd = qdes.qdd(i);
+		joint_des_state[options.active_dofs(i)+1].th = qdes.q(i);
+		joint_des_state[options.active_dofs(i)+1].thd = qdes.qd(i);
+		joint_des_state[options.active_dofs(i)+1].thdd = qdes.qdd(i);
 	}
 }
 
