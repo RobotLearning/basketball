@@ -60,13 +60,14 @@ BOOST_AUTO_TEST_CASE(test_kinematics) {
 
 	BOOST_TEST_MESSAGE("Testing kinematics close to default posture...");
 
-	ivec active_dofs = RIGHT_ARM;
+	ivec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
 	//double q_active[NDOF_OPT] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
-	double q_active[NDOF_OPT] = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
+	double q_active[NDOF_ACTIVE] = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
+								 0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
 	double pos_left[NCART];
 	double pos_right[NCART];
-	double pos_des_left[NCART] = {-0.27,0.31,0.22};
-	double pos_des_right[NCART] = {0.27,0.31,0.22};
+	double pos_des_left[NCART] = {-0.27,0.34,0.21};
+	double pos_des_right[NCART] = {0.27,0.34,0.21};
 
 	get_position(active_dofs,q_active,pos_left,pos_right);
 	BOOST_TEST(pos_left[0] == pos_des_left[0],boost::test_tools::tolerance(0.01));

@@ -53,7 +53,7 @@ clean:
 	
 ##### ALL TESTS ARE INCLUDED HERE
 test:
-	$(CC) $(FLAGS) $(DEBUG) test/test_optim.cpp -o unit_tests \
+	$(CC) $(FLAGS) $(RELEASE) test/test_optim.cpp -o unit_tests \
 	               $(SHARED_OBJ) -L$(LIBPATH) $(LIBS) $(LIBPATH)/libboost_unit_test_framework.a -lnlopt
 				
 

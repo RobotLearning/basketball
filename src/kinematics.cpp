@@ -49,12 +49,15 @@ void get_position(const ivec & active_dofs, const double q_active[],
 	static double axis[NDOF+1][3+1];
 	static double amats[NDOF+1][4+1][4+1];
 	static vec q = zeros<vec>(NDOF);
+	static vec q_default = zeros<vec>(NDOF);
 	static bool firsttime = true;
 
 	if (firsttime) {
-		read_default_state(q);
+		read_default_state(q_default);
 		firsttime = false;
 	}
+
+	q = q_default;
 	for (int i = 0; i < active_dofs.n_elem; i++) {
 		q(active_dofs[i]) = q_active[i];
 	}
