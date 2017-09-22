@@ -104,6 +104,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	valid_obs = false;
 
 	if (check_reset_filter(newball,verb,pflags.t_reset_thresh)) {
+		//cout << "Resetting filter..." << endl;
 		filter = init_filter(pflags.var_model,pflags.var_noise);
 		num_obs = 0;
 		init_ball_state = false;
@@ -269,7 +270,7 @@ bool Player::check_update(const joint & qact) const {
 	vec6 state_est;
 	bool update = false;
 
-	bool activate, passed_lim, incoming, feasible = false;
+	bool activate, passed_lim, incoming = false;
 
 	if (firsttime) {
 		timer.tic();
@@ -279,18 +280,17 @@ bool Player::check_update(const joint & qact) const {
 	try {
 		state_est = filter.get_mean();
 		counter++;
-		feasible = (state_est(DY) >= 0.0);
+		incoming = state_est(Y) > state_last(Y);
 		update = !opt_left->check_update() && !opt_left->check_running() &&
 				 !opt_right->check_update() && !opt_right->check_running();
 		// ball is incoming
 		if (pflags.mpc) {
 			activate = (!pflags.detach) ? counter % 5 == 0 :
 					                        timer.toc() > (1.0/pflags.freq_mpc);
-			incoming = state_est(Y) > state_last(Y);
-			update = update && valid_obs && activate && feasible && incoming;
+			update = update && valid_obs && activate && incoming;
 		}
 		else {
-			update = update && (poly_left.t == 0.0) && (poly_right.t == 0) && feasible; // only once
+			update = update && (poly_left.t == 0.0) && (poly_right.t == 0); // only once
 		}
 		state_last = state_est;
 		if (update) {
@@ -338,12 +338,12 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	// make sure we update after optim finished
 	if (poly_left.t > 0.0 ) {
-		if (!update_next_state(q_rest_des,pflags.time2return,false,poly_left,qdes)) {
+		if (!update_next_state(q_rest_des.head(NDOF_OPT),pflags.time2return,false,poly_left,qdes)) {
 			opt_left->set_moving(false);
 		}
 	}
 	if (poly_right.t > 0.0 ) {
-		if (!update_next_state(q_rest_des,pflags.time2return,true,poly_right,qdes)) {
+		if (!update_next_state(q_rest_des.tail(NDOF_OPT),pflags.time2return,true,poly_right,qdes)) {
 			opt_right->set_moving(false);
 		}
 	}
@@ -459,10 +459,7 @@ bool update_next_state(const vec & q_rest_des,
 		//printf("Hitting finished!\n");
 		poly.t = 0.0;
 		flag = false;
-		if (right_arm)
-			q = q_rest_des.tail(NDOF_OPT);
-		else
-			q = q_rest_des.head(NDOF_OPT);
+		q = q_rest_des;
 		qd = zeros<vec>(NDOF_OPT);
 		qdd = zeros<vec>(NDOF_OPT);
 	}

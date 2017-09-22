@@ -52,6 +52,32 @@ inline void init_default_basketball(vec6 & ball_state) {
 }
 
 /*
+ * Testing if the kinematics was copied correctly from SL
+ */
+BOOST_AUTO_TEST_CASE(test_kinematics) {
+
+	// TODO: Could it be that the difference in default postures causes not-so-small deviations?
+
+	BOOST_TEST_MESSAGE("Testing kinematics close to default posture...");
+
+	ivec active_dofs = RIGHT_ARM;
+	//double q_active[NDOF_OPT] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
+	double q_active[NDOF_OPT] = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
+	double pos_left[NCART];
+	double pos_right[NCART];
+	double pos_des_left[NCART] = {-0.27,0.31,0.22};
+	double pos_des_right[NCART] = {0.27,0.31,0.22};
+
+	get_position(active_dofs,q_active,pos_left,pos_right);
+	BOOST_TEST(pos_left[0] == pos_des_left[0],boost::test_tools::tolerance(0.01));
+	BOOST_TEST(pos_left[1] == pos_des_left[1],boost::test_tools::tolerance(0.01));
+	BOOST_TEST(pos_left[2] == pos_des_left[2],boost::test_tools::tolerance(0.01));
+	BOOST_TEST(pos_right[0] == pos_des_right[0],boost::test_tools::tolerance(0.01));
+	BOOST_TEST(pos_right[1] == pos_des_right[1],boost::test_tools::tolerance(0.01));
+	BOOST_TEST(pos_right[2] == pos_des_right[2],boost::test_tools::tolerance(0.01));
+}
+
+/*
  * Testing the optimization of a Basketball player touching a ball
  * attached to a string (moving in 2d: y and z axis)
  */
@@ -122,8 +148,8 @@ BOOST_AUTO_TEST_CASE(test_touch) {
 	EKF filter = init_filter();
 	player_flags flags;
 	flags.active_dofs = active_dofs;
-	flags.detach = false;
-	flags.verbosity = 2;
+	flags.detach = true;
+	flags.verbosity = 3;
 	Player robot = Player(qact.q,filter,flags);
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
@@ -136,8 +162,8 @@ BOOST_AUTO_TEST_CASE(test_touch) {
 		ball_obs = balls_pred.col(i).head(3);
 
 		// play
-		robot.play(qact, ball_obs, qdes);
-		//robot.cheat(qact, balls_pred.col(i), qdes);
+		//robot.play(qact, ball_obs, qdes);
+		robot.cheat(qact, balls_pred.col(i), qdes);
 
 		// get cartesian state
 		get_position(active_dofs,qdes.q.memptr(),pos_left,pos_right);
@@ -148,7 +174,7 @@ BOOST_AUTO_TEST_CASE(test_touch) {
 		xdes(Y+NCART,i) = pos_left[Y];
 		xdes(Z+NCART,i) = pos_left[Z];
 
-		//usleep(DT*1e6);
+		usleep(DT*1e6);
 		qact.q = qdes.q;
 		qact.qd = qdes.qd;
 	}
@@ -163,25 +189,4 @@ BOOST_AUTO_TEST_CASE(test_touch) {
 	uword idx = index_min(errnorms);
 	BOOST_TEST_MESSAGE("Minimum dist between ball and robot: \n" << errnorms(idx));
 	BOOST_TEST(errnorms(idx) < 0.1); // distance should be less than 10 cm
-}
-
-/*
- * Testing if the kinematics was copied correctly from SL
- */
-BOOST_AUTO_TEST_CASE(test_kinematics) {
-
-	// TODO: Could it be that the difference in default postures causes not-so-small deviations?
-
-	BOOST_TEST_MESSAGE("Testing kinematics close to default posture...");
-
-	ivec active_dofs = RIGHT_ARM;
-	double q_active[NDOF_ACTIVE] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
-	double pos_left[NCART];
-	double pos_right[NCART];
-	double pos_des_right[NCART] = {0.272,0.336,0.179};
-
-	get_position(active_dofs,q_active,pos_left,pos_right);
-	BOOST_TEST(pos_right[0] == pos_des_right[0],boost::test_tools::tolerance(0.01));
-	BOOST_TEST(pos_right[1] == pos_des_right[1],boost::test_tools::tolerance(0.01));
-	BOOST_TEST(pos_right[2] == pos_des_right[2],boost::test_tools::tolerance(0.01));
 }

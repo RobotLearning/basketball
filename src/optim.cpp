@@ -1,11 +1,13 @@
 /**
  * @file optimpoly.cpp
- * @brief Nonlinear optimization in C using the NLOPT library
+ * @brief Nonlinear optimization in C/C++ using the NLOPT library
  * @author Okan
  * @date 30/05/2016
+ * @modified 09/2017 for Basketball
  *
  */
 
+#include "stdio.h"
 #include <armadillo>
 #include <thread>
 #include "constants.h"
@@ -323,9 +325,9 @@ double Optim::test_soln(const double x[]) const {
 
 	// give info on constraint violation
 	double *grad = 0;
-	static double max_acc_violation; // at hitting time
-	static double kin_violation[EQ_CONSTR_DIM];
-	static double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
+	double max_acc_violation; // at hitting time
+	double kin_violation[EQ_CONSTR_DIM];
+	double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
 	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
 			             OPTIM_DIM, x, grad, (void*)this);
 	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
@@ -356,14 +358,14 @@ double Optim::test_soln(const double x[]) const {
  */
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
 
-	double a1[NDOF_OPT];
-	double a2[NDOF_OPT];
+	thread_local double a1[NDOF_OPT];
+	thread_local double a2[NDOF_OPT];
 	double T = x[2*NDOF_OPT];
 
 	if (grad) {
-		static double h = 1e-6;
-		static double val_plus, val_minus;
-		static double xx[2*NDOF_OPT+1];
+		thread_local double h = 1e-6;
+		thread_local double val_plus, val_minus;
+		thread_local double xx[2*NDOF_OPT+1];
 		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
 		for (unsigned i = 0; i < n; i++) {
@@ -393,22 +395,22 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *my_function_data) {
 
-	static double des_pos[NCART];
-	static double des_vel[NCART];
-	static double pos_right[NCART];
-	static double pos_left[NCART];
-	static double qfdot[NDOF_OPT];
-	static double vel[NCART];
-	static double qf[NDOF_OPT];
+	thread_local double des_pos[NCART];
+	thread_local double des_vel[NCART];
+	thread_local double pos_right[NCART];
+	thread_local double pos_left[NCART];
+	thread_local double qfdot[NDOF_OPT];
+	thread_local double vel[NCART];
+	thread_local double qf[NDOF_OPT];
 	double T = x[2*NDOF_OPT];
 
 	Optim *opt = (Optim*) my_function_data;
 	optim_des* data = opt->param_des;
 
 	if (grad) {
-		static double h = 1e-6;
-		static double res_plus[EQ_CONSTR_DIM], res_minus[EQ_CONSTR_DIM];
-		static double xx[2*NDOF_OPT+1];
+		thread_local double h = 1e-6;
+		thread_local double res_plus[EQ_CONSTR_DIM], res_minus[EQ_CONSTR_DIM];
+		thread_local double xx[2*NDOF_OPT+1];
 		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
 		for (unsigned i = 0; i < n; i++) {
@@ -491,15 +493,15 @@ static void first_order_hold(const optim_des* data, const double T,
 void joint_limits_ineq_constr(unsigned m, double *result,
 		unsigned n, const double *x, double *grad, void *my_func_params) {
 
-	static double a1[NDOF_OPT];
-	static double a2[NDOF_OPT];
-	static double a1ret[NDOF_OPT]; // coefficients for the returning polynomials
-	static double a2ret[NDOF_OPT];
-	static double joint_strike_max_cand[NDOF_OPT];
-	static double joint_strike_min_cand[NDOF_OPT];
-	static double joint_return_max_cand[NDOF_OPT];
-	static double joint_return_min_cand[NDOF_OPT];
-	static vec qdot_rest = zeros<vec>(NDOF_OPT);
+	thread_local double a1[NDOF_OPT];
+	thread_local double a2[NDOF_OPT];
+	thread_local double a1ret[NDOF_OPT]; // coefficients for the returning polynomials
+	thread_local double a2ret[NDOF_OPT];
+	thread_local double joint_strike_max_cand[NDOF_OPT];
+	thread_local double joint_strike_min_cand[NDOF_OPT];
+	thread_local double joint_return_max_cand[NDOF_OPT];
+	thread_local double joint_return_min_cand[NDOF_OPT];
+	thread_local vec qdot_rest = zeros<vec>(NDOF_OPT);
 
 	Optim *opt = (Optim*) my_func_params;
 	double *q0 = opt->q0;
@@ -507,9 +509,9 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 	double Tret = opt->time2return;
 
 	if (grad) {
-		static double h = 1e-6;
-		static double res_plus[INEQ_CONSTR_DIM], res_minus[INEQ_CONSTR_DIM];
-		static double xx[2*NDOF_OPT+1];
+		thread_local double h = 1e-6;
+		thread_local double res_plus[INEQ_CONSTR_DIM], res_minus[INEQ_CONSTR_DIM];
+		thread_local double xx[2*NDOF_OPT+1];
 		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
 		for (unsigned i = 0; i < n; i++) {
@@ -585,7 +587,7 @@ void calc_strike_extrema_cand(const double *a1, const double *a2, const double T
 		                      const double *q0, const double *q0dot,
 		                      double *joint_max_cand, double *joint_min_cand) {
 
-	static double cand1, cand2;
+	thread_local double cand1, cand2;
 
 	for (int i = 0; i < NDOF_OPT; i++) {
 		cand1 = fmin(T,fmax(0,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*q0dot[i]))/(3*a1[i])));
@@ -607,7 +609,7 @@ void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double Tret,
 		                      double *joint_max_cand, double *joint_min_cand) {
 
-	static double cand1, cand2;
+	thread_local double cand1, cand2;
 
 	for (int i = 0; i < NDOF_OPT; i++) {
 		cand1 = fmin(Tret, fmax(0,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+NDOF_OPT]))/(3*a1[i])));
