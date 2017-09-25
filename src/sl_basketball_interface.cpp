@@ -151,7 +151,7 @@ void load_options() {
  * Expose environment variables and constants to SL as an array.
  *
  */
-void integrate_ball_state(const double dt, double ball_state[6], double env_vars[6]) {
+void integrate_ball_state(const double dt, const SL_Cstate robot_state[NENDEFF+1], double ball_state[6], double env_vars[6]) {
 
 	static double theta_dot = 0.0;
 	static double theta = 45.0 * (PI/180.0);
@@ -164,6 +164,9 @@ void integrate_ball_state(const double dt, double ball_state[6], double env_vars
 	ball_state[DY] = -(string_len + basketball_radius) * cos(theta) * theta_dot;
 	ball_state[DZ] = (string_len + basketball_radius) * sin(theta) * theta_dot;
 
+	// modify ball velocities in case of contact
+	check_for_contact(robot_state,theta,ball_state,theta_dot);
+
 	env_vars[0] = string_len;
 	env_vars[1] = basketball_radius;
 	env_vars[2] = base_pendulum(X);
@@ -172,6 +175,62 @@ void integrate_ball_state(const double dt, double ball_state[6], double env_vars
 	env_vars[5] = theta;
 	// send also the ball state
 
+}
+
+/**
+ * @brief Modify the incoming basketball velocity and string angle velocity in case of contact.
+ *
+ * Contact occurs if the norm of the difference between the arm and the ball is less than
+ * or equal to the ball radius. We check for both arms.
+ * The contact model is an IDEAL MOMENTUM EXCHANGE assuming mass_robot >> mass_ball!
+ */
+static void check_for_contact(const SL_Cstate robot_state[NENDEFF+1], const double theta,
+		                      double ball_state[6], double & theta_dot) {
+
+	// check for contact
+	double left_hand_pos[NCART];
+	double right_hand_pos[NCART];
+	double left_hand_vel[NCART];
+	double right_hand_vel[NCART];
+	double err_norm = 0.0;
+	double dist_left = 0.0;
+	double dist_right = 0.0;
+	bool contact_left, contact_right = false;
+
+	for (int i = 0; i < NCART; i++) {
+		left_hand_pos[i] = robot_state[LEFT_HAND+1].x[i+1];
+		right_hand_pos[i] = robot_state[RIGHT_HAND+1].x[i+1];
+		left_hand_vel[i] = robot_state[LEFT_HAND+1].xd[i+1];
+		right_hand_vel[i] = robot_state[RIGHT_HAND+1].xd[i+1];
+	}
+	for (int i = 0; i < NCART; i++) {
+		err_norm += (left_hand_pos[i] - ball_state[i])*(left_hand_pos[i] - ball_state[i]);
+	}
+	if (sqrt(err_norm) <= basketball_radius) {
+		contact_left = true;
+	}
+	err_norm = 0.0;
+	for (int i = 0; i < NCART; i++) {
+		err_norm += (right_hand_pos[i] - ball_state[i])*(right_hand_pos[i] - ball_state[i]);
+	}
+	if (sqrt(err_norm) <= basketball_radius) {
+		contact_right = true;
+	}
+
+	if (contact_left) {
+		// change velocities
+		for (int i = 0; i < NCART; i++)
+			ball_state[NCART+i] = -ball_state[NCART+i] + 2*left_hand_vel[i];
+		// change string angle velocity
+		theta_dot = -ball_state[DY] / ((string_len + basketball_radius) * cos(theta));
+	}
+	if (contact_right) {
+		// change velocities
+		for (int i = 0; i < NCART; i++)
+			ball_state[NCART+i] = -ball_state[NCART+i] + 2*right_hand_vel[i];
+		// change string angle velocity
+		theta_dot = -ball_state[DY] / ((string_len + basketball_radius) * cos(theta));
+	}
 }
 
 /**
