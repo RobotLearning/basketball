@@ -4,7 +4,7 @@ DIR=$(HOME)/basketball
 HEADER=$(DIR)/include
 LIBDIR=$(DIR)/lib
 CC=g++
-LIBS=-larmadillo -lm
+LIBS=-larmadillo -lm -lboost_program_options
 FLAGS=-I$(HEADER) -pthread -std=c++11
 RELEASE=-O3 -DNDEBUG
 DEBUG=-DDEBUG -g -Wall -pedantic -Wextra #-Weffc++	

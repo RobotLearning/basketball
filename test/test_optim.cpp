@@ -19,8 +19,6 @@
 #include "optim.h"
 #include "player.hpp"
 
-const double PI = 3.1416;
-
 using namespace arma;
 
 /*
@@ -42,9 +40,6 @@ inline void init_default_posture(const bool right, vec & q0) {
  */
 inline void init_default_basketball(vec6 & ball_state) {
 	ball_state.zeros();
-	const vec3 base_pendulum = {0.00, 0.9, 1.0};
-	const double string_len = 1.0;
-	const double basketball_radius = 0.1213;
 	double theta_init = -45.0 * (PI/180.0);
 	ball_state(X) = base_pendulum(X);
 	ball_state(Y) = base_pendulum(Y) - (string_len + basketball_radius) * sin(theta_init);
@@ -148,7 +143,6 @@ BOOST_AUTO_TEST_CASE(test_touch) {
 	qact.q = qdes.q;
 	EKF filter = init_filter();
 	player_flags flags;
-	flags.active_dofs = active_dofs;
 	flags.detach = true;
 	flags.verbosity = 3;
 	Player robot = Player(qact.q,filter,flags);
@@ -185,9 +179,9 @@ BOOST_AUTO_TEST_CASE(test_touch) {
 	xdes.save("robot_cart.txt",csv_ascii);
 
 	// find the closest point between two curves
-	mat err = xdes.rows(0,2) - balls_pred.rows(0,2);
-	rowvec errnorms = sqrt(sum(err % err,0));
-	uword idx = index_min(errnorms);
-	BOOST_TEST_MESSAGE("Minimum dist between ball and robot: \n" << errnorms(idx));
-	BOOST_TEST(errnorms(idx) < 0.1); // distance should be less than 10 cm
+	mat diff = xdes.rows(0,2) - balls_pred.rows(0,2);
+	rowvec diff_norms = sqrt(sum(diff % diff,0));
+	uword idx = index_min(diff_norms);
+	BOOST_TEST_MESSAGE("Minimum dist between ball and robot: \n" << diff_norms(idx));
+	BOOST_TEST(diff_norms(idx) <= basketball_radius, boost::test_tools::tolerance(0.01)); // distance should be less than 10 cm
 }

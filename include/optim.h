@@ -21,7 +21,7 @@
 #include "constants.h"
 
 // defines
-const int EQ_CONSTR_DIM = NCART;
+const int EQ_CONSTR_DIM = 1;
 const int INEQ_CONSTR_DIM = 2*NDOF_OPT + 2*NDOF_OPT; // both strike and returning trajectories, min and max
 const double MAX_VEL = 10;
 const double MAX_ACC = 200;
@@ -118,8 +118,9 @@ public:
 	vec lb = zeros<vec>(2*NDOF_OPT+1); //!< Joint lower limits, joint vel. lower limit and min. hitting time
 	vec ub = zeros<vec>(2*NDOF_OPT+1); //!< Joint upper limits, joint vel. upper limit and max. hitting time
 	vec qrest; //!< Resting posture for optimizers to compute return traj.
-	double q0[NDOF_OPT] = {0.0}; //!< Initial joint state needed to compute traj. acc.
-	double q0dot[NDOF_OPT] = {0.0}; //!< Initial joint velocities needed to compute traj. acc.
+	vec q0 = zeros<vec>(NDOF_OPT); //!< Initial joint state needed to compute traj. acc.
+	vec q0dot = zeros<vec>(NDOF_OPT); //!< Initial joint velocities needed to compute traj. acc.
+
 	double time2return = 0.5; //!< Desired time to return to resting state
 	Optim();
 	Optim(const vec & qrest, const bool right);
@@ -142,20 +143,18 @@ public:
 void joint_limits_ineq_constr(unsigned m, double *result,
 		                      unsigned n, const double *x, double *grad, void *data);
 
-void calc_strike_poly_coeff(const double *q0, const double *q0dot, const double *x,
+void calc_strike_poly_coeff(const vec & q0, const vec & q0dot, const double *x,
 		                    double *a1, double *a2);
-void calc_return_poly_coeff(const vec & qrest, const vec & q0_dot,
+void calc_return_poly_coeff(const vec & qrest, const vec & qrest_dot,
 		                    const double *x, const double time2return,
 		                    double *a1, double *a2);
 void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
-		                      const double *q0, const double *q0dot,
+		                      const vec & q0, const vec & q0dot,
 							  double *joint_max_cand, double *joint_min_cand);
 void calc_return_extrema_cand(const double *a1, const double *a2,
 		                      const double *x, const double time2return,
 							  double *joint_max_cand, double *joint_min_cand);
-double calc_max_acc_violation(const double x[2*NDOF_OPT+1],
-		const double q0[NDOF_OPT],
-		const double q0dot[NDOF_OPT]);
+double calc_max_acc_violation(const double x[2*NDOF_OPT+1], const vec & q0, const vec & q0dot);
 
 // set upper and lower bounds for optimization
 void set_bounds(const ivec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub);

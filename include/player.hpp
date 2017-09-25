@@ -16,12 +16,10 @@
 
 using namespace arma;
 
-/**
- * Finite State machine for Table Tennis
- */
-enum game { //trial state
-	AWAITING,//!< AWAITING
-	HIT,     //!< HIT
+enum alg { //type of algorithm
+	LEFT_HAND_OPT,
+	RIGHT_HAND_OPT,
+	BOTH_HAND_OPT
 };
 
 /**
@@ -40,7 +38,8 @@ struct player_flags {
 	double var_noise = 0.001; //!< variance of noise process (R)
 	double var_model = 0.001; //!< variance of process noise (Q)
 	double t_reset_thresh = 0.3; //!< resetting Kalman filter after this many seconds pass without getting valid obs.
-	ivec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
+	double offset = 1.0; //!< y-offset location after which we start optim
+	alg optim_type = RIGHT_HAND_OPT;
 };
 
 /**
@@ -60,7 +59,6 @@ private:
 	double t_obs = 0.0; // counting time stamps for resetting filter
 	bool valid_obs = true; // ball observed is valid (new ball and not an outlier)
 	int num_obs = 0; // number of observations received
-	game game_state = AWAITING;
 	player_flags pflags;
 	optim_des pred_params;
 	mat observations; // for initializing filter
@@ -109,6 +107,7 @@ void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
 vec calc_next_ball(const vec & xnow, const double dt, const void *fp);
 bool check_reset_filter(const bool newball, const int verbose, const double threshold);
 bool check_new_obs(const vec3 & obs, double tol);
+void ball_pendulum_model(const double dt, double & theta, double & theta_dot);
 
 // movement generation
 bool update_next_state(const vec & q_rest_des,

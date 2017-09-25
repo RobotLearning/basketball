@@ -108,7 +108,6 @@ void Player::estimate_ball_state(const vec3 & obs) {
 		filter = init_filter(pflags.var_model,pflags.var_noise);
 		num_obs = 0;
 		init_ball_state = false;
-		game_state = AWAITING;
 		//cout << obs << endl;
 		t_obs = 0.0; // t_cumulative
 	}
@@ -237,15 +236,18 @@ void Player::optim_param(const joint & qact) {
 		pred_params.ball_pos = balls_pred.rows(X,Z);
 		pred_params.ball_vel = balls_pred.rows(DX,DZ);
 
-		opt_right->set_des_params(&pred_params);
-		opt_right->update_init_state(qact);
-		//opt_right->set_verbose(true);
-		opt_right->run();
-
-		opt_left->set_des_params(&pred_params);
-		opt_left->update_init_state(qact);
-		//opt_left->set_verbose(true);
-		opt_left->run();
+		if (pflags.optim_type == LEFT_HAND_OPT || pflags.optim_type == BOTH_HAND_OPT) {
+			opt_left->set_des_params(&pred_params);
+			opt_left->update_init_state(qact);
+			//opt_left->set_verbose(true);
+			opt_left->run();
+		}
+		if (pflags.optim_type == RIGHT_HAND_OPT || pflags.optim_type == BOTH_HAND_OPT) {
+			opt_right->set_des_params(&pred_params);
+			opt_right->update_init_state(qact);
+			//opt_right->set_verbose(true);
+			opt_right->run();
+		}
 	}
 }
 
@@ -270,7 +272,7 @@ bool Player::check_update(const joint & qact) const {
 	vec6 state_est;
 	bool update = false;
 
-	bool activate, passed_lim, incoming = false;
+	bool activate, passed_lim, incoming, feasible = false;
 
 	if (firsttime) {
 		timer.tic();
@@ -280,6 +282,7 @@ bool Player::check_update(const joint & qact) const {
 	try {
 		state_est = filter.get_mean();
 		counter++;
+		feasible = state_est(Y) < pflags.offset;
 		incoming = state_est(Y) > state_last(Y);
 		update = !opt_left->check_update() && !opt_left->check_running() &&
 				 !opt_right->check_update() && !opt_right->check_running();
@@ -324,7 +327,6 @@ void Player::calc_next_state(const joint & qact, joint & qdes) {
 		}
 		poly_right.t = DT;
 		opt_right->set_moving(true);
-
 	}
 
 	// this should be only for MPC?
@@ -362,7 +364,6 @@ void Player::reset_filter(double var_model, double var_noise) {
 	filter = init_filter(var_model,var_noise);
 	init_ball_state = false;
 	num_obs = 0;
-	game_state = AWAITING;
 	t_obs = 0.0;
 }
 
@@ -508,12 +509,6 @@ EKF init_filter(const double var_model, const double var_noise) {
  */
 vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 
-	const vec3 base_pendulum = {0.0, 0.9, 1.0};
-	const double string_len = 1.0;
-	const double basketball_radius = 0.1213;
-	const double gravity = -9.8;
-	const double friction = 0.00;
-
 	vec3 ball_pos = xnow.head(3);
 	vec3 ball_vel = xnow.tail(3);
 
@@ -523,9 +518,7 @@ vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 	// integrate them and then revert back to current ball pos
 	double theta = atan(ball_pos(Y) / ball_pos(Z));
 	double theta_dot = -ball_vel(Y) / ((string_len + basketball_radius) * cos(theta));
-
-	theta_dot += dt * (gravity * sin(theta) - friction * theta_dot);
-	theta += dt * theta_dot;
+	ball_pendulum_model(dt, theta, theta_dot);
 
 	// we're in the third quadrant
 	ball_pos(Y) = base_pendulum(Y) - (string_len + basketball_radius) * sin(theta);
@@ -533,6 +526,16 @@ vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 	ball_vel(Y) = -(string_len + basketball_radius) * theta_dot * cos(theta);
 	ball_vel(Z) = (string_len + basketball_radius) * theta_dot * sin(theta);
 	return join_vert(ball_pos,ball_vel);
+}
+
+
+/**
+ * @brief Integrate the angle state of the pendulum string using Symplectic Euler.
+ */
+void ball_pendulum_model(const double dt, double & theta, double & theta_dot) {
+
+	theta_dot += dt * (gravity * sin(theta) - friction * theta_dot);
+	theta += dt * theta_dot;
 }
 
 

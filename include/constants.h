@@ -92,6 +92,7 @@ enum RobotEndeffectors {
 
 const ivec RIGHT_ARM = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
 const ivec LEFT_ARM = {L_SFE, L_SAA, L_HR, L_EB, L_WR, L_WFE, L_WAA};
+const ivec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
 
 const int NCART = 3;
 const int NQUAT = 4;
@@ -102,11 +103,14 @@ const int NDOF_ACTIVE = NDOF_OPT * NARMS_ACTIVE;
 const int NBLOBS = 6;
 const int NLINK = N_MAX_DOFS;
 const int NENDEFF = N_MAX_ENDEFFECTORS;
+const double PI = 3.14159265358979323846;
 const double DT = 0.002; //!< 500 Hz robot operation
 
 /* Ball variables */
-const double ball_radius  = 0.1213; //!< standard basketball radius
-
-
+const double basketball_radius  = 0.1213; //!< standard basketball radius
+const double gravity = -9.8;
+const double friction = 0.0;
+const double string_len = 1.0;
+const vec base_pendulum = {0.0, 0.9, 1.0};
 
 #endif /* INCLUDE_CONSTANTS_H_ */

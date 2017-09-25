@@ -82,7 +82,6 @@ static void kinematics(const double state[NDOF],
 				double Xaxis[NDOF+1][4],
 		        double Ahmat[NDOF+1][5][5]) {
 
-	const double PI = 3.14159265358979323846;
 	static bool firsttime = true;
 	static double basec[3+1] = {0.0};
 	static double baseo[4+1] = {0.0};
