@@ -16,7 +16,6 @@
 
 /* Internal variables */
 static double start_time;
-static double ball_speed = 1.0;
 
 typedef struct {
 	int status; //!< was ball detected reliably in cameras
@@ -41,61 +40,58 @@ static int change_basketball_task(void);
  * Simulates a ball attached to a string
  */
 static int simulate_ball(void) {
+
 	int j, i;
-	static double last_time;
-	static int last_frame_counter = -999;
-	static int sendflag = FALSE;
-	static double ball_speed = 1.0;
-	static double gravity = -9.8;
-	static double friction = 0.03;
 	static int firsttime = TRUE;
-	// Angle
+	static const double dt = 0.002;
 	static double theta_dot = 0.0;
 	static double theta = 45.0 * (PI/180.0);
+	static double ball_state[6];
+	static double env_vars[6];
 
 	if (firsttime) {
-		last_time = servo_time;
 		firsttime = FALSE;
 	}
 
-	theta_dot += (servo_time - last_time) * (gravity * sin(theta) - friction * theta_dot);
-	theta += (servo_time - last_time) * theta_dot;
-
-	sendUserGraphics("basketball_pendulum",&theta,sizeof(double));
+	integrate_ball_state(dt, ball_state, env_vars);
+	sendUserGraphics("basketball_pendulum",env_vars,6*sizeof(double));
 
 	// fill the ball_obs structure for communicating to basketball lib
-	const double base_pendulum[N_CART+1] = {0.0, 0.0, 0.9, 0.9};
-	const double basketball_radius = 0.1213;
-	const double string_len = 1.0;
-	sim_ball_state.x[1] = base_pendulum[1]; //x is fixed
-	sim_ball_state.x[2] = base_pendulum[2] - (string_len + basketball_radius) * sin(theta);
-	sim_ball_state.x[3] = base_pendulum[3] - (string_len + basketball_radius) * cos(theta);
-	sim_ball_state.xd[1] = 0.0;
-	sim_ball_state.xd[2] = -(string_len + basketball_radius) * cos(theta) * theta_dot;
-	sim_ball_state.xd[3] = (string_len + basketball_radius) * sin(theta) * theta_dot;
-
 	ball_obs.status = TRUE;
 	for (i = 0; i < 3; i++) {
-		ball_obs.pos[i] = sim_ball_state.x[i+1];
+		ball_obs.pos[i] = ball_state[i];
 	}
 
-	last_time = servo_time;
 	return TRUE;
 }
 
 
 static int init_basketball_task(void) {
 
+	int i, ready;
 	bzero((char *)&(ball_obs), sizeof(ball_obs));
 	bzero((char *)&(sim_ball_state), sizeof(sim_ball_state));
-	start_time = servo_time;
-
-	// Set the ball speed
-	get_double("Ball speed",ball_speed,&ball_speed);
 
 	// Start collecting data
 	scd();
 
+	load_options();
+
+	for (i = 1; i <= N_DOFS; i++) {
+		joint_des_state[i].th = joint_default_state[i].th;
+		//printf("default_state[%d] = %f\n", i, joint_default_state[i].th);
+	}
+
+	/* ready to go */
+	ready = 999;
+	while (ready == 999) {
+		if (!get_int("Enter 1 to start or anything else to abort ...",ready, &ready))
+			return FALSE;
+	}
+	if (ready != 1)
+		return FALSE;
+
+	start_time = servo_time;
 	return TRUE;
 }
 
@@ -105,11 +101,22 @@ static int run_basketball_task(void) {
 	double t = servo_time - start_time; // Current time
 	int i, j;
 
+	//printf("t = %f\n",t);
+	/*printf("basec = [%f,%f,%f]\n",base_state.x[1],base_state.x[2],base_state.x[3]);
+	printf("baseo = [%f,%f,%f,%f]\n",base_orient.q[1],base_orient.q[2],base_orient.q[3],base_orient.q[4]);
+	printf("effx = [%f,%f,%f]\n",endeff[RIGHT_HAND].x[1],endeff[RIGHT_HAND].x[2],endeff[RIGHT_HAND].x[3]);
+	printf("effo = [%f,%f,%f]\n",endeff[RIGHT_HAND].a[1],endeff[RIGHT_HAND].a[2],endeff[RIGHT_HAND].a[3]);*/
+	//printf("x = [%f,%f,%f]\n",cart_state[RIGHT_HAND].x[1],cart_state[RIGHT_HAND].x[2],cart_state[RIGHT_HAND].x[3]);
+	//printf("LEFT HAND = [%f,%f,%f]\n",cart_des_state[LEFT_HAND].x[1],cart_des_state[LEFT_HAND].x[2],cart_des_state[LEFT_HAND].x[3]);
+	//printf("RIGHT HAND = [%f,%f,%f]\n",cart_des_state[RIGHT_HAND].x[1],cart_des_state[RIGHT_HAND].x[2],cart_des_state[RIGHT_HAND].x[3]);
+
 	simulate_ball();
 	//cheat(joint_state, &sim_ball_state, joint_des_state);
 	play(joint_state, &ball_obs, joint_des_state); // basketball lib generates trajectories for touching the ball
 
 	check_range(joint_des_state); // Check if the trajectory is safe
+	SL_InverseDynamics(NULL, joint_des_state, endeff); // Feedforward control
+	//SL_InverseDynamics(joint_state, joint_des_state, endeff);
 
 	return TRUE;
 }
