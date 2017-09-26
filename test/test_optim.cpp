@@ -77,9 +77,9 @@ BOOST_AUTO_TEST_CASE(test_kinematics) {
  * Testing the optimization of a Basketball player touching a ball
  * attached to a string (moving in 2d: y and z axis)
  */
-BOOST_AUTO_TEST_CASE(test_optim) {
+BOOST_AUTO_TEST_CASE(test_touch_optim) {
 
-	BOOST_TEST_MESSAGE("Testing the optimization...");
+	BOOST_TEST_MESSAGE("Testing the optimization for touch...");
 	int N = 1000;
 	vec6 ball_state;
 	arma_rng::set_seed(1);
@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE(test_optim) {
 /*
  * Testing whether the ball can be touched
  */
-BOOST_AUTO_TEST_CASE(test_touch) {
+BOOST_AUTO_TEST_CASE(test_touch_player) {
 
 	BOOST_TEST_MESSAGE("Testing if the ball can be touched...");
 
@@ -184,4 +184,56 @@ BOOST_AUTO_TEST_CASE(test_touch) {
 	uword idx = index_min(diff_norms);
 	BOOST_TEST_MESSAGE("Minimum dist between ball and robot: \n" << diff_norms(idx));
 	BOOST_TEST(diff_norms(idx) <= basketball_radius, boost::test_tools::tolerance(0.01)); // distance should be less than 10 cm
+}
+
+/**
+ * Test whether the ball in the pendulum can be swung up
+ *
+ */
+BOOST_AUTO_TEST_CASE( test_hit_optim ) {
+
+	BOOST_TEST_MESSAGE("Testing if the ball can be swung upwards...");
+
+	// given ball positions predict future pendulum angles
+	// calc desired theta velocity at predicted angles
+	// fill in the optim class and start optim
+	// test if ball actually swings up!
+
+	int N = 1000;
+	vec6 ball_state;
+	arma_rng::set_seed(1);
+	//arma_rng::set_seed_random();
+	vec q0 = zeros<vec>(NDOF_OPT);
+	joint qact;
+	spline_params poly;
+	init_default_basketball(ball_state);
+	init_default_posture(true,q0);
+	qact.q = join_vert(q0,q0);
+	EKF filter = init_filter();
+	mat66 P; P.eye();
+	filter.set_prior(ball_state,P);
+	mat balls_pred = filter.predict_path(DT,N);
+	optim_des params;
+	params.Nmax = 1000;
+	params.ball_pos = balls_pred.rows(X,Z);
+	params.ball_vel = balls_pred.rows(DX,DZ);
+
+	BOOST_TEST_MESSAGE("On the left side...");
+	Optim opt_left = Optim(q0,false);
+	opt_left.set_des_params(&params);
+	opt_left.update_init_state(qact);
+	opt_left.run();
+	bool update_right_side = opt_left.get_params(qact,poly);
+
+	// right side
+	BOOST_TEST_MESSAGE("On the right side...");
+	Optim opt_right = Optim(q0,true);
+	opt_right.set_des_params(&params);
+	opt_right.update_init_state(qact);
+	opt_right.run();
+
+	// left side
+	bool update_left_side = opt_right.get_params(qact,poly);
+	BOOST_TEST(update_right_side);
+	BOOST_TEST(update_left_side);
 }

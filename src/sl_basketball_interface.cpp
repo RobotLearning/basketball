@@ -145,8 +145,9 @@ void load_options() {
 }
 
 /**
- * @brief Integrate pendulum angle in simulation using symplectic Euler.
+ * @brief Integrate ball state in simulation using symplectic Euler.
  *
+ * Using an internal pendulum model to predict ball state.
  * Derives ball state as a function of pendulum angle state.
  * Expose environment variables and constants to SL as an array.
  *
@@ -155,17 +156,32 @@ void integrate_ball_state(const double dt, const SL_Cstate robot_state[NENDEFF+1
 
 	static double theta_dot = 0.0;
 	static double theta = 45.0 * (PI/180.0);
+	static vec3 left_hand_pos;
+	static vec3 right_hand_pos;
+	static vec3 left_hand_vel;
+	static vec3 right_hand_vel;
+	static vec3 ball_pos;
+	static vec3 ball_vel;
+
+	for (int i = 0; i < NCART; i++) {
+		left_hand_pos(i) = robot_state[LEFT_HAND+1].x[i+1];
+		right_hand_pos(i) = robot_state[RIGHT_HAND+1].x[i+1];
+		left_hand_vel(i) = robot_state[LEFT_HAND+1].xd[i+1];
+		right_hand_vel(i) = robot_state[RIGHT_HAND+1].xd[i+1];
+		ball_pos(i) = ball_state[i];
+		ball_vel(i) = ball_state[i+NCART];
+	}
 
 	ball_pendulum_model(dt, theta, theta_dot);
-	ball_state[X] = base_pendulum(X); //x is fixed
-	ball_state[Y] = base_pendulum(Y) - (string_len + basketball_radius) * sin(theta);
-	ball_state[Z] = base_pendulum(Z) - (string_len + basketball_radius) * cos(theta);
-	ball_state[DX] = 0.0;
-	ball_state[DY] = -(string_len + basketball_radius) * cos(theta) * theta_dot;
-	ball_state[DZ] = (string_len + basketball_radius) * sin(theta) * theta_dot;
-
 	// modify ball velocities in case of contact
-	check_for_contact(robot_state,theta,ball_state,theta_dot);
+	check_for_contact(left_hand_pos,left_hand_vel,ball_pos,theta,ball_vel,theta_dot);
+	check_for_contact(right_hand_pos,right_hand_vel,ball_pos,theta,ball_vel,theta_dot);
+	calc_ball_from_angle(theta,theta_dot,ball_pos,ball_vel);
+
+	for (int i = 0; i < NCART; i++) {
+		ball_state[i] = ball_pos(i);
+		ball_state[i+NCART] = ball_vel(i);
+	}
 
 	env_vars[0] = string_len;
 	env_vars[1] = basketball_radius;
@@ -175,62 +191,6 @@ void integrate_ball_state(const double dt, const SL_Cstate robot_state[NENDEFF+1
 	env_vars[5] = theta;
 	// send also the ball state
 
-}
-
-/**
- * @brief Modify the incoming basketball velocity and string angle velocity in case of contact.
- *
- * Contact occurs if the norm of the difference between the arm and the ball is less than
- * or equal to the ball radius. We check for both arms.
- * The contact model is an IDEAL MOMENTUM EXCHANGE assuming mass_robot >> mass_ball!
- */
-static void check_for_contact(const SL_Cstate robot_state[NENDEFF+1], const double theta,
-		                      double ball_state[6], double & theta_dot) {
-
-	// check for contact
-	double left_hand_pos[NCART];
-	double right_hand_pos[NCART];
-	double left_hand_vel[NCART];
-	double right_hand_vel[NCART];
-	double err_norm = 0.0;
-	double dist_left = 0.0;
-	double dist_right = 0.0;
-	bool contact_left, contact_right = false;
-
-	for (int i = 0; i < NCART; i++) {
-		left_hand_pos[i] = robot_state[LEFT_HAND+1].x[i+1];
-		right_hand_pos[i] = robot_state[RIGHT_HAND+1].x[i+1];
-		left_hand_vel[i] = robot_state[LEFT_HAND+1].xd[i+1];
-		right_hand_vel[i] = robot_state[RIGHT_HAND+1].xd[i+1];
-	}
-	for (int i = 0; i < NCART; i++) {
-		err_norm += (left_hand_pos[i] - ball_state[i])*(left_hand_pos[i] - ball_state[i]);
-	}
-	if (sqrt(err_norm) <= basketball_radius) {
-		contact_left = true;
-	}
-	err_norm = 0.0;
-	for (int i = 0; i < NCART; i++) {
-		err_norm += (right_hand_pos[i] - ball_state[i])*(right_hand_pos[i] - ball_state[i]);
-	}
-	if (sqrt(err_norm) <= basketball_radius) {
-		contact_right = true;
-	}
-
-	if (contact_left) {
-		// change velocities
-		for (int i = 0; i < NCART; i++)
-			ball_state[NCART+i] = -ball_state[NCART+i] + 2*left_hand_vel[i];
-		// change string angle velocity
-		theta_dot = -ball_state[DY] / ((string_len + basketball_radius) * cos(theta));
-	}
-	if (contact_right) {
-		// change velocities
-		for (int i = 0; i < NCART; i++)
-			ball_state[NCART+i] = -ball_state[NCART+i] + 2*right_hand_vel[i];
-		// change string angle velocity
-		theta_dot = -ball_state[DY] / ((string_len + basketball_radius) * cos(theta));
-	}
 }
 
 /**

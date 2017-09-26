@@ -107,7 +107,13 @@ void predict_ball(const double & time_pred, mat & balls_pred, EKF & filter);
 vec calc_next_ball(const vec & xnow, const double dt, const void *fp);
 bool check_reset_filter(const bool newball, const int verbose, const double threshold);
 bool check_new_obs(const vec3 & obs, double tol);
+
+// ball models
 void ball_pendulum_model(const double dt, double & theta, double & theta_dot);
+void check_for_contact(const vec3 & robot_pos, const vec3 & robot_vel, const vec3 & ball_pos,
+					   const double theta, vec3 & ball_vel, double & theta_dot);
+void calc_angle_from_ball(const vec3 & ball_pos, const vec3 & ball_vel, double & theta, double & theta_dot);
+void calc_ball_from_angle(const double theta, const double theta_dot, vec3 & ball_pos, vec3 & ball_vel);
 
 // movement generation
 bool update_next_state(const vec & q_rest_des,
