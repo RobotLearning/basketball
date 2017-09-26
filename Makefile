@@ -10,6 +10,7 @@ RELEASE=-O3 -DNDEBUG
 DEBUG=-DDEBUG -g -Wall -pedantic -Wextra #-Weffc++	
 SHARED_OBJ=$(LIBDIR)/libbasket.so
 OBJDIR=$(DIR)/obj
+TEST_EXE=./unit_tests
 SRCS=$(wildcard $(DIR)/src/*.cpp $(DIR)/src/*.c)
 OBJS=$(addsuffix .o,$(addprefix $(OBJDIR)/,$(basename $(notdir $(SRCS)))))
 #$(info $$OBJS is [${OBJS}])
@@ -28,6 +29,9 @@ $(SHARED_OBJ) : $(OBJS)
 
 $(OBJDIR)/player.o : $(DIR)/src/player.cpp $(HEADER)/player.hpp $(HEADER)/optim.h $(HEADER)/kinematics.h
 	$(CC) -c -fPIC $(FLAGS) -o $@ $<
+	
+$(OBJDIR)/ball.o : $(DIR)/src/ball.cpp $(HEADER)/ball.h $(HEADER)/constants.h
+	$(CC) -c -fPIC $(FLAGS) -o $@ $<	
 	
 $(OBJDIR)/kalman.o : $(DIR)/src/kalman.cpp $(HEADER)/kalman.h
 	$(CC) -c -fPIC $(FLAGS) -o $@ $<
@@ -52,9 +56,12 @@ clean:
 	rm -rf obj/*.o lib/*.so
 	
 ##### ALL TESTS ARE INCLUDED HERE
-test:
-	$(CC) $(FLAGS) $(RELEASE) test/test_optim.cpp -o unit_tests \
-	               $(SHARED_OBJ) -L$(LIBPATH) $(LIBS) $(LIBPATH)/libboost_unit_test_framework.a -lnlopt
-				
+test: $(TEST_EXE)
+
+$(TEST_EXE) : obj/test/test_optim.o $(SHARED_OBJ)
+	$(CC) $(FLAGS) $(DEBUG) -o $@ $^ $(SHARED_OBJ) -L$(LIBPATH) $(LIBS) $(LIBPATH)/libboost_unit_test_framework.a -lnlopt
+	               
+obj/test/test_optim.o : test/test_optim.cpp
+	$(CC) -c $(FLAGS) -o $@ $<
 
 .PHONY: all test clean

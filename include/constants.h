@@ -79,6 +79,55 @@ enum RobotDOFs {
 	N_MAX_DOFS
 };
 
+/*! links of the robot */
+enum RobotLinks {
+  B_SACRAL=1,
+
+  L_SHOULDER,
+  L_SHOULDER_AA,
+  L_SHOULDER_HR,
+  L_ELBOW,
+  L_WRIST,
+  L_HAND,
+
+  R_SHOULDER,
+  R_SHOULDER_AA,
+  R_SHOULDER_HR,
+  R_ELBOW,
+  R_WRIST,
+  R_HAND,
+
+  B_CERVICAL1,
+  B_CERVICAL2,
+  R_EYE_AXIS,
+  R_EYE,
+  L_EYE_AXIS,
+  L_EYE,
+  B_HEAD,
+
+  R_HIP,
+  R_HIP_R,
+  R_KNEE,
+  R_ANKLE,
+  R_OUT_TOE,
+  R_IN_TOE,
+  R_OUT_HEEL,
+  R_IN_HEEL,
+  R_FOOT,
+
+  L_HIP,
+  L_HIP_R,
+  L_KNEE,
+  L_ANKLE,
+  L_OUT_TOE,
+  L_IN_TOE,
+  L_OUT_HEEL,
+  L_IN_HEEL,
+  L_FOOT,
+
+  N_ROBOT_LINKS
+};
+
 /*! endeffector information */
 enum RobotEndeffectors {
 
@@ -93,6 +142,7 @@ enum RobotEndeffectors {
 const ivec RIGHT_ARM = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
 const ivec LEFT_ARM = {L_SFE, L_SAA, L_HR, L_EB, L_WR, L_WFE, L_WAA};
 const ivec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
+const ivec link2endeffmap = {L_HAND,R_HAND,L_FOOT,R_FOOT};
 
 const int NCART = 3;
 const int NQUAT = 4;

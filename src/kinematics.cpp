@@ -25,32 +25,29 @@ using namespace arma;
 
 // internal functions used in calculating cartesian quantities
 static void kinematics(const double state[NDOF],
-		        double Xlink[NLINK+1][4],
-				double Xorigin[NDOF+1][4],
-				double Xaxis[NDOF+1][4],
-		        double Ahmat[NDOF+1][5][5]);
+		        	   double Xlink[NLINK+1][4],
+					   double Xorigin[NDOF+1][4],
+					   double Xaxis[NDOF+1][4],
+					   double Ahmat[NDOF+1][5][5]);
 static void jacobian(const double link[NLINK+1][4],
-		const double origin[NDOF+1][4],
-		const double axis[NDOF+1][4],
-		double jac[2*NCART][NDOF]);
+					 const double origin[NDOF+1][4],
+					 const double axis[NDOF+1][4],
+					 mat & jac);
 static void read_default_state(vec & q_default);
 
 
 /**
  * @brief Returns the cartesian endeffector positions
  */
-void get_position(const ivec & active_dofs, const double q_active[],
-		          double pos_left[NCART], double pos_right[NCART]) {
+void calc_cart_pos(const ivec & active_dofs, const double q_active[], vec & pos_left, vec & pos_right) {
 
-	const int RIGHT_HAND = R_WAA;
-	const int LEFT_HAND = L_WAA + 1;
 	static double link[NLINK+1][3+1];
 	static double origin[NDOF+1][3+1];
 	static double axis[NDOF+1][3+1];
 	static double amats[NDOF+1][4+1][4+1];
-	static vec q = zeros<vec>(NDOF);
 	static vec q_default = zeros<vec>(NDOF);
 	static bool firsttime = true;
+	thread_local vec q = zeros<vec>(NDOF);
 
 	if (firsttime) {
 		read_default_state(q_default);
@@ -64,10 +61,51 @@ void get_position(const ivec & active_dofs, const double q_active[],
 
 	kinematics(q.memptr(),link,origin,axis,amats);
 	for (int i = 0; i < NCART; i++) {
-		pos_right[i] = link[RIGHT_HAND][i+1];
-		pos_left[i] = link[LEFT_HAND][i+1];
+		pos_right(i) = link[R_HAND][i+1];
+		pos_left(i) = link[L_HAND][i+1];
 		//normal[i] = amats[PALM][i+1][2];
 	}
+}
+
+/**
+ * @brief Returns the cartesian positions and velocities of LEFT HAND and RIGHT HAND
+ */
+void calc_cart_pos_and_vel(const ivec & active_dofs, const double q_active[], const double qdot_active[],
+		                   vec3 & pos_left, vec3 & pos_right, vec3 & vel_left, vec3 & vel_right) {
+
+	static double link[NLINK+1][3+1];
+	static double origin[NDOF+1][3+1];
+	static double axis[NDOF+1][3+1];
+	static double amats[NDOF+1][4+1][4+1];
+	static vec q_default = zeros<vec>(NDOF);
+	static mat jac = zeros<mat>(2*NENDEFF*NCART,NDOF);
+	static bool firsttime = true;
+	thread_local vec q = zeros<vec>(NDOF);
+	thread_local vec qdot = zeros<vec>(NDOF);
+
+	if (firsttime) {
+		read_default_state(q_default);
+		firsttime = false;
+	}
+
+	q = q_default;
+	for (int i = 0; i < active_dofs.n_elem; i++) {
+		q(active_dofs[i]) = q_active[i];
+		qdot(active_dofs[i]) = qdot_active[i];
+	}
+
+	kinematics(q.memptr(),link,origin,axis,amats);
+
+	for (int i = 0; i < NCART; i++) {
+		pos_right(i) = link[R_HAND][i+1];
+		pos_left(i) = link[L_HAND][i+1];
+		//normal[i] = amats[PALM][i+1][2];
+	}
+
+	jacobian(link,origin,axis,jac);
+	vec vel = jac * qdot;
+	vel_left = vel(span(0,2));
+	vel_right = vel(span(6,8));
 }
 
 /*
@@ -3024,22 +3062,22 @@ static void kinematics(const double state[NDOF],
 }
 
 static void jacobian(const double link[NLINK+1][4],
-		const double origin[NDOF+1][4],
-		const double axis[NDOF+1][4],
-		double jac[2*NCART][NDOF]) {
+					 const double origin[NDOF+1][4],
+					 const double axis[NDOF+1][4],
+					 mat & jac) {
 
-	static const int PALM = 6;
 	static double c[2*NCART];
-	for (int j = 1; j <= NDOF; ++j) {
-		c[0] = axis[j][2] * (link[PALM][3] - origin[j][3]) - axis[j][3] * (link[PALM][2]-origin[j][2]);
-		c[1] = axis[j][3] * (link[PALM][1] - origin[j][1]) - axis[j][1] * (link[PALM][3]-origin[j][3]);
-		c[2] = axis[j][1] * (link[PALM][2] - origin[j][2]) - axis[j][2] * (link[PALM][1]-origin[j][1]);
-		c[3] = axis[j][1];
-		c[4] = axis[j][2];
-		c[5] = axis[j][3];
-		//rev_geo_jac_col(lp[PALM], jop[j], jap[j], c);
-		for (int i = 0; i < 2*NCART; i++)
-			jac[i][j-1] = c[i];
+	for (int i = 0; i < NENDEFF; i++) {
+		for (int j = 1; j <= NDOF; ++j) {
+			c[0] = axis[j][2] * (link[link2endeffmap(i)][3] - origin[j][3]) - axis[j][3] * (link[link2endeffmap(i)][2]-origin[j][2]);
+			c[1] = axis[j][3] * (link[link2endeffmap(i)][1] - origin[j][1]) - axis[j][1] * (link[link2endeffmap(i)][3]-origin[j][3]);
+			c[2] = axis[j][1] * (link[link2endeffmap(i)][2] - origin[j][2]) - axis[j][2] * (link[link2endeffmap(i)][1]-origin[j][1]);
+			c[3] = axis[j][1];
+			c[4] = axis[j][2];
+			c[5] = axis[j][3];
+			for (int k = 0; k < 2*NCART; k++)
+				jac(i*2*NCART + k,j-1) = c[k];
+		}
 	}
 }
 

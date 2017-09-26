@@ -59,27 +59,23 @@ BOOST_AUTO_TEST_CASE(test_kinematics) {
 	//double q_active[NDOF_OPT] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
 	double q_active[NDOF_ACTIVE] = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
 								 0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
-	double pos_left[NCART];
-	double pos_right[NCART];
-	double pos_des_left[NCART] = {-0.27,0.34,0.21};
-	double pos_des_right[NCART] = {0.27,0.34,0.21};
+	vec3 pos_left;
+	vec3 pos_right;
+	vec3 pos_des_left = {-0.27,0.34,0.21};
+	vec3 pos_des_right = {0.27,0.34,0.21};
 
-	get_position(active_dofs,q_active,pos_left,pos_right);
-	BOOST_TEST(pos_left[0] == pos_des_left[0],boost::test_tools::tolerance(0.01));
-	BOOST_TEST(pos_left[1] == pos_des_left[1],boost::test_tools::tolerance(0.01));
-	BOOST_TEST(pos_left[2] == pos_des_left[2],boost::test_tools::tolerance(0.01));
-	BOOST_TEST(pos_right[0] == pos_des_right[0],boost::test_tools::tolerance(0.01));
-	BOOST_TEST(pos_right[1] == pos_des_right[1],boost::test_tools::tolerance(0.01));
-	BOOST_TEST(pos_right[2] == pos_des_right[2],boost::test_tools::tolerance(0.01));
+	calc_cart_pos(active_dofs,q_active,pos_left,pos_right);
+	BOOST_TEST(approx_equal(pos_left,pos_des_left,"absdiff", 0.002)); //boost::test_tools::tolerance(0.01)
+	BOOST_TEST(approx_equal(pos_right,pos_des_right,"absdiff", 0.002)); //boost::test_tools::tolerance(0.01)
 }
 
 /*
  * Testing the optimization of a Basketball player touching a ball
  * attached to a string (moving in 2d: y and z axis)
  */
-BOOST_AUTO_TEST_CASE(test_touch_optim) {
+BOOST_AUTO_TEST_CASE(test_optim) {
 
-	BOOST_TEST_MESSAGE("Testing the optimization for touch...");
+	BOOST_TEST_MESSAGE("Testing the optimization for touch/hit...");
 	int N = 1000;
 	vec6 ball_state;
 	arma_rng::set_seed(1);
@@ -99,22 +95,41 @@ BOOST_AUTO_TEST_CASE(test_touch_optim) {
 	params.ball_pos = balls_pred.rows(X,Z);
 	params.ball_vel = balls_pred.rows(DX,DZ);
 
-	BOOST_TEST_MESSAGE("On the left side...");
-	Optim opt_left = Optim(q0,false);
-	opt_left.set_des_params(&params);
-	opt_left.update_init_state(qact);
-	opt_left.run();
-	bool update_right_side = opt_left.get_params(qact,poly);
+	BOOST_TEST_MESSAGE("TOUCHING from the left side...");
+	Optim *opt = new Optim(q0,false);
+	opt->set_des_params(&params);
+	opt->update_init_state(qact);
+	opt->run();
+	bool update_left_side = opt->get_params(qact,poly);
+	delete opt;
 
-	// right side
-	BOOST_TEST_MESSAGE("On the right side...");
-	Optim opt_right = Optim(q0,true);
-	opt_right.set_des_params(&params);
-	opt_right.update_init_state(qact);
-	opt_right.run();
+	BOOST_TEST_MESSAGE("TOUCHING from the right side...");
+	opt = new Optim(q0,true);
+	opt->set_des_params(&params);
+	opt->update_init_state(qact);
+	opt->run();
+	bool update_right_side = opt->get_params(qact,poly);
+	delete opt;
 
-	// left side
-	bool update_left_side = opt_right.get_params(qact,poly);
+	BOOST_TEST(update_right_side);
+	BOOST_TEST(update_left_side);
+
+	BOOST_TEST_MESSAGE("HITTING from the left side...");
+	opt = new Optim(q0,false,false);
+	opt->set_des_params(&params);
+	opt->update_init_state(qact);
+	opt->run();
+	update_right_side = opt->get_params(qact,poly);
+	delete opt;
+
+	BOOST_TEST_MESSAGE("HITTING from the right side...");
+	opt = new Optim(q0,true,false);
+	opt->set_des_params(&params);
+	opt->update_init_state(qact);
+	opt->run();
+	update_left_side = opt->get_params(qact,poly);
+	delete opt;
+
 	BOOST_TEST(update_right_side);
 	BOOST_TEST(update_left_side);
 }
@@ -122,118 +137,61 @@ BOOST_AUTO_TEST_CASE(test_touch_optim) {
 /*
  * Testing whether the ball can be touched
  */
-BOOST_AUTO_TEST_CASE(test_touch_player) {
-
-	BOOST_TEST_MESSAGE("Testing if the ball can be touched...");
-
-	arma_rng::set_seed_random();
-	//arma_rng::set_seed(5);
-
-	int N = 1000;
-	joint qact;
-	joint qdes;
-	vec7 q0;
-	vec6 ball_state;
-	vec3 ball_obs;
-	double pos_left[NCART], pos_right[NCART];
-	ivec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
-	init_default_basketball(ball_state);
-	init_default_posture(true,q0);
-	qdes.q = join_vert(q0,q0);
-	qact.q = qdes.q;
-	EKF filter = init_filter();
-	player_flags flags;
-	flags.detach = true;
-	flags.verbosity = 3;
-	Player robot = Player(qact.q,filter,flags);
-	mat66 P; P.eye();
-	filter.set_prior(ball_state,P);
-	mat balls_pred = filter.predict_path(DT,N);
-	mat xdes = zeros<mat>(2*NCART,N);
-
-	for (int i = 0; i < N; i++) {
-
-		// move the ball
-		ball_obs = balls_pred.col(i).head(3);
-
-		// play
-		//robot.play(qact, ball_obs, qdes);
-		robot.cheat(qact, balls_pred.col(i), qdes);
-
-		// get cartesian state
-		get_position(active_dofs,qdes.q.memptr(),pos_left,pos_right);
-		xdes(X,i) = pos_right[X];
-		xdes(Y,i) = pos_right[Y];
-		xdes(Z,i) = pos_right[Z];
-		xdes(X+NCART,i) = pos_left[X];
-		xdes(Y+NCART,i) = pos_left[Y];
-		xdes(Z+NCART,i) = pos_left[Z];
-
-		usleep(DT*1e6);
-		qact.q = qdes.q;
-		qact.qd = qdes.qd;
-	}
-
-	// test for intersection on Cartesian space
-	balls_pred.save("balls_pred.txt",csv_ascii);
-	xdes.save("robot_cart.txt",csv_ascii);
-
-	// find the closest point between two curves
-	mat diff = xdes.rows(0,2) - balls_pred.rows(0,2);
-	rowvec diff_norms = sqrt(sum(diff % diff,0));
-	uword idx = index_min(diff_norms);
-	BOOST_TEST_MESSAGE("Minimum dist between ball and robot: \n" << diff_norms(idx));
-	BOOST_TEST(diff_norms(idx) <= basketball_radius, boost::test_tools::tolerance(0.01)); // distance should be less than 10 cm
-}
-
-/**
- * Test whether the ball in the pendulum can be swung up
- *
- */
-BOOST_AUTO_TEST_CASE( test_hit_optim ) {
-
-	BOOST_TEST_MESSAGE("Testing if the ball can be swung upwards...");
-
-	// given ball positions predict future pendulum angles
-	// calc desired theta velocity at predicted angles
-	// fill in the optim class and start optim
-	// test if ball actually swings up!
-
-	int N = 1000;
-	vec6 ball_state;
-	arma_rng::set_seed(1);
-	//arma_rng::set_seed_random();
-	vec q0 = zeros<vec>(NDOF_OPT);
-	joint qact;
-	spline_params poly;
-	init_default_basketball(ball_state);
-	init_default_posture(true,q0);
-	qact.q = join_vert(q0,q0);
-	EKF filter = init_filter();
-	mat66 P; P.eye();
-	filter.set_prior(ball_state,P);
-	mat balls_pred = filter.predict_path(DT,N);
-	optim_des params;
-	params.Nmax = 1000;
-	params.ball_pos = balls_pred.rows(X,Z);
-	params.ball_vel = balls_pred.rows(DX,DZ);
-
-	BOOST_TEST_MESSAGE("On the left side...");
-	Optim opt_left = Optim(q0,false);
-	opt_left.set_des_params(&params);
-	opt_left.update_init_state(qact);
-	opt_left.run();
-	bool update_right_side = opt_left.get_params(qact,poly);
-
-	// right side
-	BOOST_TEST_MESSAGE("On the right side...");
-	Optim opt_right = Optim(q0,true);
-	opt_right.set_des_params(&params);
-	opt_right.update_init_state(qact);
-	opt_right.run();
-
-	// left side
-	bool update_left_side = opt_right.get_params(qact,poly);
-	BOOST_TEST(update_right_side);
-	BOOST_TEST(update_left_side);
-}
+//BOOST_AUTO_TEST_CASE(test_touch_player) {
+//
+//	BOOST_TEST_MESSAGE("Testing if the ball can be touched...");
+//
+//	arma_rng::set_seed_random();
+//	//arma_rng::set_seed(5);
+//
+//	int N = 1000;
+//	joint qact;
+//	joint qdes;
+//	vec7 q0;
+//	vec6 ball_state;
+//	vec3 ball_obs;
+//	vec3 pos_left, pos_right;
+//	ivec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
+//	init_default_basketball(ball_state);
+//	init_default_posture(true,q0);
+//	qdes.q = join_vert(q0,q0);
+//	qact.q = qdes.q;
+//	EKF filter = init_filter();
+//	player_flags flags;
+//	flags.detach = true;
+//	flags.verbosity = 3;
+//	Player robot = Player(qact.q,filter,flags);
+//	mat66 P; P.eye();
+//	filter.set_prior(ball_state,P);
+//	mat balls_pred = filter.predict_path(DT,N);
+//	mat xdes = zeros<mat>(2*NCART,N);
+//
+//	for (int i = 0; i < N; i++) {
+//
+//		// move the ball
+//		ball_obs = balls_pred.col(i).head(3);
+//
+//		// play
+//		//robot.play(qact, ball_obs, qdes);
+//		robot.cheat(qact, balls_pred.col(i), qdes);
+//
+//		// get cartesian state
+//		calc_cart_pos(active_dofs,qdes.q.memptr(),pos_left,pos_right);
+//		xdes.col(i) = join_vert(pos_left,pos_right);
+//
+//		usleep(DT*1e6);
+//		qact.q = qdes.q;
+//		qact.qd = qdes.qd;
+//	}
+//
+//	// test for intersection on Cartesian space
+//	balls_pred.save("balls_pred.txt",csv_ascii);
+//	xdes.save("robot_cart.txt",csv_ascii);
+//
+//	// find the closest point between two curves
+//	mat diff = xdes.rows(0,2) - balls_pred.rows(0,2);
+//	rowvec diff_norms = sqrt(sum(diff % diff,0));
+//	uword idx = index_min(diff_norms);
+//	BOOST_TEST_MESSAGE("Minimum dist between ball and robot: \n" << diff_norms(idx));
+//	BOOST_TEST(diff_norms(idx) <= basketball_radius, boost::test_tools::tolerance(0.01)); // distance should be less than 10 cm
+//}

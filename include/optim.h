@@ -19,12 +19,15 @@
 #include <nlopt.h>
 #include "string.h"
 #include "constants.h"
+#include "ball.h"
 
 // defines
-const int EQ_CONSTR_DIM = 1;
+const int EQ_TOUCH_CONSTR_DIM = 1;
+const int EQ_HIT_CONSTR_DIM = 2;
 const int INEQ_CONSTR_DIM = 2*NDOF_OPT + 2*NDOF_OPT; // both strike and returning trajectories, min and max
 const double MAX_VEL = 10;
 const double MAX_ACC = 200;
+const double THETA_DOT_DES = 1.0;
 
 using namespace arma;
 
@@ -84,14 +87,13 @@ struct weights {
 
 
 /**
- * @brief Base class for all optimizers.
+ * @brief Basketball hitting/touching optimization.
  *
- * Containts base class methods, members and virtual methods
- * to be implemented.
  */
 class Optim {
 
 protected:
+
 	static const int OPTIM_DIM = 2*NDOF_OPT + 1; //!< dim. of optim problem
 	bool lookup = false; //!< use lookup table methods to init. optim params.
 	bool verbose = true; //!< verbose output printed
@@ -99,10 +101,11 @@ protected:
 	bool update = false; //!< optim finished and soln. seems valid
 	bool running = false; //!< optim still RUNNING
 	bool detach = false; //!< detach optim in another thread
+	bool touch = true; //!< desired task: touch or hit the ball?
 	nlopt_opt opt; //!< optimizer from NLOPT library
 
-	double qf[NDOF_OPT] = {0.0}; //!< saved joint positions after optim
-	double qfdot[NDOF_OPT] = {0.0}; //!< saved joint velocities after optim
+	vec qf = zeros<vec>(NDOF_OPT); //!< saved joint positions after optim
+	vec qfdot = zeros<vec>(NDOF_OPT); //!< saved joint velocities after optim
 	double T = 1.0; //!< saved hitting time after optim terminates
 
 	void init_last_soln(double *x) const;
@@ -111,19 +114,21 @@ protected:
 	void finalize_soln(const double *x, const double dt);
 	void optim_rest_posture(vec & q_rest_des);
 	void optim();
+
 public:
+
+	double time2return = 0.5; //!< Desired time to return to resting state
 	bool right_arm = true; //!< optimize the right arm if TRUE, left arm if FALSE
 	ivec active_dofs = zeros<ivec>(NDOF_OPT);
 	optim_des *param_des; //!< Desired racket and/or ball predicted vals.
 	vec lb = zeros<vec>(2*NDOF_OPT+1); //!< Joint lower limits, joint vel. lower limit and min. hitting time
 	vec ub = zeros<vec>(2*NDOF_OPT+1); //!< Joint upper limits, joint vel. upper limit and max. hitting time
-	vec qrest; //!< Resting posture for optimizers to compute return traj.
+	vec qrest = zeros<vec>(NDOF_OPT); //!< Resting posture for optimizers to compute return traj.
 	vec q0 = zeros<vec>(NDOF_OPT); //!< Initial joint state needed to compute traj. acc.
 	vec q0dot = zeros<vec>(NDOF_OPT); //!< Initial joint velocities needed to compute traj. acc.
 
-	double time2return = 0.5; //!< Desired time to return to resting state
 	Optim();
-	Optim(const vec & qrest, const bool right);
+	Optim(const vec & qrest, const bool right = true, const bool touch = true);
 	bool check_update();
 	bool check_running();
 	void set_moving(bool flag);

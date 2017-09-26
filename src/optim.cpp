@@ -22,9 +22,11 @@ static bool check_optim_result(const int res);
 
 // optimization related methods
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_data);
-static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
+static void touch_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *f_data);
-static void first_order_hold(const optim_des* data, const double T, double ball_pos[NCART], double ball_vel[NCART]);
+static void hit_constr(unsigned m, double *result, unsigned n,
+		                  const double *x, double *grad, void *f_data);
+static void first_order_hold(const optim_des* data, const double T, vec3 & ball_pos, vec3 & ball_vel);
 
 /**
  * @brief Initialize the NLOPT optimization procedure here for FP
@@ -32,12 +34,12 @@ static void first_order_hold(const optim_des* data, const double T, double ball_
  * @param lb_ Fixed joint lower limits
  * @param ub_ Fixed joint upper limits
  */
-Optim::Optim(const vec & qrest_, const bool right) : qrest(qrest_), right_arm(right) {
+Optim::Optim(const vec & qrest_, const bool right, const bool touch_) : right_arm(right), touch(touch_) {
 
-	double tol_eq[EQ_CONSTR_DIM];
-	double tol_ineq[INEQ_CONSTR_DIM];
-	const_vec(EQ_CONSTR_DIM,1e-2,tol_eq);
-	const_vec(INEQ_CONSTR_DIM,1e-3,tol_ineq);
+	qrest = qrest_;
+	vec tol_touch_eq = 1e-2 * ones<vec>(EQ_TOUCH_CONSTR_DIM);
+	vec tol_hit_eq = 1e-2 * ones<vec>(EQ_HIT_CONSTR_DIM);
+	vec tol_ineq = 1e-3 * ones<vec>(INEQ_CONSTR_DIM);
 
 	double SLACK = 0.02;
 	double Tmax = 2.0;
@@ -49,8 +51,11 @@ Optim::Optim(const vec & qrest_, const bool right) : qrest(qrest_), right_arm(ri
 	nlopt_set_lower_bounds(opt, lb.memptr());
 	nlopt_set_upper_bounds(opt, ub.memptr());
 	nlopt_set_min_objective(opt, costfunc, this);
-	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq);
-	nlopt_add_equality_mconstraint(opt, EQ_CONSTR_DIM, kinematics_eq_constr, this, tol_eq);
+	nlopt_add_inequality_mconstraint(opt, INEQ_CONSTR_DIM, joint_limits_ineq_constr, this, tol_ineq.memptr());
+	if (touch)
+		nlopt_add_equality_mconstraint(opt, EQ_TOUCH_CONSTR_DIM, touch_constr, this, tol_touch_eq.memptr());
+	else
+		nlopt_add_equality_mconstraint(opt, EQ_HIT_CONSTR_DIM, hit_constr, this, tol_hit_eq.memptr());
 }
 
 /**
@@ -143,12 +148,6 @@ bool Optim::get_params(const joint & qact, spline_params & p) {
 	vec qdnow = zeros<vec>(NDOF_OPT);
 	bool flag = false;
 	if (update && !running) {
-		vec qf_ = zeros<vec>(NDOF_OPT);
-		vec qfdot_ = zeros<vec>(NDOF_OPT);
-		for (int i = 0; i < NDOF_OPT; i++) {
-			qf_(i) = qf[i];
-			qfdot_(i) = qfdot[i];
-		}
 		if (right_arm) {
 			qnow = qact.q.tail(NDOF_OPT);
 			qdnow = qact.qd.tail(NDOF_OPT);
@@ -157,15 +156,15 @@ bool Optim::get_params(const joint & qact, spline_params & p) {
 			qnow = qact.q.head(NDOF_OPT);
 			qdnow = qact.qd.head(NDOF_OPT);
 		}
-		p.a.col(0) = 2.0 * (qnow - qf_) / pow(T,3) + (qfdot_ + qdnow) / pow(T,2);
-		p.a.col(1) = 3.0 * (qf_ - qnow) / pow(T,2) - (qfdot_ + 2.0*qdnow) / T;
+		p.a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
+		p.a.col(1) = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
 		p.a.col(2) = qdnow;
 		p.a.col(3) = qnow;
 		//cout << "A = \n" << p.a << endl;
-		p.b.col(0) = 2.0 * (qf_ - qrest) / pow(time2return,3) + (qfdot_) / pow(time2return,2);
-		p.b.col(1) = 3.0 * (qrest - qf_) / pow(time2return,2) - (2.0*qfdot_) / time2return;
-		p.b.col(2) = qfdot_;
-		p.b.col(3) = qf_;
+		p.b.col(0) = 2.0 * (qf - qrest) / pow(time2return,3) + (qfdot) / pow(time2return,2);
+		p.b.col(1) = 3.0 * (qrest - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
+		p.b.col(2) = qfdot;
+		p.b.col(3) = qf;
 		p.time2hit = T;
 		//cout << "B = \n" << p.b << endl;
 		flag = true;
@@ -264,8 +263,8 @@ void Optim::init_last_soln(double x[]) const {
 
 	// initialize first dof entries to q0
 	for (int i = 0; i < NDOF_OPT; i++) {
-		x[i] = qf[i];
-		x[i+NDOF_OPT] = qfdot[i];
+		x[i] = qf(i);
+		x[i+NDOF_OPT] = qfdot(i);
 	}
 	x[2*NDOF_OPT] = T;
 	//cout << "Initialization from T = " << T << endl;
@@ -299,8 +298,8 @@ void Optim::finalize_soln(const double x[], double time_elapsed) {
 	if (x[2*NDOF_OPT] > fmax(time_elapsed/1e3,0.05)) {
 		// initialize first dof entries to q0
 		for (int i = 0; i < NDOF_OPT; i++) {
-			qf[i] = x[i];
-			qfdot[i] = x[i+NDOF_OPT];
+			qf(i) = x[i];
+			qfdot(i) = x[i+NDOF_OPT];
 		}
 		T = x[2*NDOF_OPT];
 		if (detach)
@@ -322,19 +321,25 @@ double Optim::test_soln(const double x[]) const {
 	// give info on constraint violation
 	double *grad = 0;
 	double max_acc_violation; // at hitting time
-	double kin_violation[EQ_CONSTR_DIM];
+	double kin_violation[EQ_HIT_CONSTR_DIM] = {0.0};
 	double lim_violation[INEQ_CONSTR_DIM]; // joint limit violations on strike and return
-	kinematics_eq_constr(EQ_CONSTR_DIM, kin_violation,
-			             OPTIM_DIM, x, grad, (void*)this);
-	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation,
-			                 OPTIM_DIM, x, grad, (void*)this);
+
+	if (touch)
+		touch_constr(EQ_TOUCH_CONSTR_DIM, kin_violation, OPTIM_DIM, x, grad, (void*)this);
+	else
+		hit_constr(EQ_HIT_CONSTR_DIM, kin_violation, OPTIM_DIM, x, grad, (void*)this);
+
+	joint_limits_ineq_constr(INEQ_CONSTR_DIM, lim_violation, OPTIM_DIM, x, grad, (void*)this);
 	double cost = costfunc(OPTIM_DIM, x, grad, (void*)this);
 
 	if (verbose) {
 		// give info on solution vector
 		print_optim_vec(x);
 		printf("f = %.2f\n",cost);
-		printf("Position constraint violation: [%.2f]\n",kin_violation[0]);
+		if (touch)
+			printf("Touch constraint violation: [%.2f]\n",kin_violation[0]);
+		else
+			printf("Hit constraint violation: [%.2f %.2f]\n", kin_violation[0], kin_violation[1]);
 		for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
 			if (lim_violation[i] > 0.0)
 				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF_OPT + 1);
@@ -342,7 +347,7 @@ double Optim::test_soln(const double x[]) const {
 	}
 	max_acc_violation = calc_max_acc_violation(x,q0,q0dot);
 
-	return fmax(fmax(max_abs_array(kin_violation,EQ_CONSTR_DIM),
+	return fmax(fmax(max_abs_array(kin_violation,EQ_HIT_CONSTR_DIM),
 			    max_array(lim_violation,INEQ_CONSTR_DIM)),
 			    max_acc_violation);
 }
@@ -383,15 +388,13 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 }
 
 /*
- * This is the constraint that makes sure we hit/touch the ball
+ * This is the constraint that makes sure we TOUCH the ball
  */
-static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
+static void touch_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *my_function_data) {
 
-	thread_local double ball_centre_pos[NCART];
-	thread_local double ball_centre_vel[NCART];
-	thread_local double pos_right[NCART];
-	thread_local double pos_left[NCART];
+	thread_local vec3 ball_centre_pos, ball_centre_vel;
+	thread_local vec3 pos_right, pos_left;
 	thread_local double qf[NDOF_OPT];
 	double T = x[2*NDOF_OPT];
 	double diff_norm = 0.0;
@@ -401,15 +404,15 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 
 	if (grad) {
 		thread_local double h = 1e-6;
-		thread_local double res_plus[EQ_CONSTR_DIM], res_minus[EQ_CONSTR_DIM];
+		thread_local double res_plus[EQ_TOUCH_CONSTR_DIM], res_minus[EQ_TOUCH_CONSTR_DIM];
 		thread_local double xx[2*NDOF_OPT+1];
 		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
 		for (unsigned i = 0; i < n; i++) {
 			xx[i] += h;
-			kinematics_eq_constr(m, res_plus, n, xx, NULL, my_function_data);
+			touch_constr(m, res_plus, n, xx, NULL, my_function_data);
 			xx[i] -= 2*h;
-			kinematics_eq_constr(m, res_minus, n, xx, NULL, my_function_data);
+			touch_constr(m, res_minus, n, xx, NULL, my_function_data);
 			xx[i] += h;
 			for (unsigned j = 0; j < m; j++)
 				grad[j*n + i] = (res_plus[j] - res_minus[j]) / (2*h);
@@ -425,16 +428,81 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
 	}
 
 	// compute the actual racket pos,vel and normal
-	get_position(opt->active_dofs,qf,pos_left,pos_right);
+	calc_cart_pos(opt->active_dofs,qf,pos_left,pos_right);
 
 	// deviations from the desired racket frame
-	for (int i = 0; i < NCART; i++) {
-		if (opt->right_arm)
-			diff_norm += (pos_right[i] - ball_centre_pos[i])*(pos_right[i] - ball_centre_pos[i]);
-		else
-			diff_norm += (pos_left[i] - ball_centre_pos[i])*(pos_left[i] - ball_centre_pos[i]);
+	if (opt->right_arm)
+		diff_norm = norm(pos_right - ball_centre_pos);
+	else
+		diff_norm = norm(pos_left - ball_centre_pos);
+
+	result[0] = diff_norm - basketball_radius;
+}
+
+/*
+ * This is the constraint that makes sure we HIT the ball
+ */
+static void hit_constr(unsigned m, double *result, unsigned n,
+		                  const double *x, double *grad, void *my_function_data) {
+
+	thread_local vec3 ball_pos, ball_vel;
+	thread_local vec3 pos_right, pos_left, vel_right, vel_left;
+	thread_local double qf[NDOF_OPT], qfdot[NDOF_OPT];
+	thread_local double theta, theta_dot;
+	double T = x[2*NDOF_OPT];
+	double diff_norm = 0.0;
+
+	Optim *opt = (Optim*) my_function_data;
+	optim_des* data = opt->param_des;
+
+	if (grad) {
+		thread_local double h = 1e-6;
+		thread_local double res_plus[EQ_HIT_CONSTR_DIM], res_minus[EQ_HIT_CONSTR_DIM];
+		thread_local double xx[2*NDOF_OPT+1];
+		for (unsigned i = 0; i < n; i++)
+			xx[i] = x[i];
+		for (unsigned i = 0; i < n; i++) {
+			xx[i] += h;
+			hit_constr(m, res_plus, n, xx, NULL, my_function_data);
+			xx[i] -= 2*h;
+			hit_constr(m, res_minus, n, xx, NULL, my_function_data);
+			xx[i] += h;
+			for (unsigned j = 0; j < m; j++)
+				grad[j*n + i] = (res_plus[j] - res_minus[j]) / (2*h);
+		}
 	}
-	result[0] = diff_norm - (basketball_radius * basketball_radius);
+
+	// interpolate at time T to get the desired racket parameters
+	first_order_hold(data,T,ball_pos,ball_vel);
+
+	// extract state information from optimization variables
+	for (int i = 0; i < NDOF_OPT; i++) {
+		qf[i] = x[i];
+		qfdot[i] = x[i+NDOF_OPT];
+	}
+
+	// compute the actual racket pos,vel and normal
+	calc_cart_pos_and_vel(opt->active_dofs,qf,qfdot,pos_left,pos_right,vel_left,vel_right);
+	calc_angle_from_ball(ball_pos,ball_vel,theta,theta_dot);
+
+	// deviations from the desired racket frame
+	if (opt->right_arm) {
+		diff_norm = norm(pos_right - ball_pos);
+		// change velocities
+		ball_vel = -ball_vel + 2*vel_right;
+		// change string angle velocity
+		theta_dot = -ball_vel(Y) / ((string_len + basketball_radius) * cos(theta));
+	}
+	else {
+		diff_norm = norm(pos_left - ball_pos);
+		// change velocities
+		ball_vel = -ball_vel + 2*vel_left;
+		// change string angle velocity
+		theta_dot = -ball_vel(Y) / ((string_len + basketball_radius) * cos(theta));
+	}
+
+	result[0] = diff_norm - basketball_radius;
+	result[1] = theta_dot - THETA_DOT_DES;
 }
 
 /*
@@ -445,34 +513,25 @@ static void kinematics_eq_constr(unsigned m, double *result, unsigned n,
  * relevant ball entries
  *
  */
-static void first_order_hold(const optim_des* data, const double T,
-		                     double ball_pos[NCART], double ball_vel[NCART]) {
+static void first_order_hold(const optim_des* data, const double T, vec3 & ball_pos, vec3 & ball_vel) {
 
 	double deltat = data->dt;
 	if (std::isnan(T)) {
 		printf("Warning: T value is nan!\n");
-
-		for(int i = 0; i < NCART; i++) {
-			ball_pos[i] = data->ball_pos(i,0);
-			ball_vel[i] = data->ball_vel(i,0);
-		}
+		ball_pos = data->ball_pos.col(0);
+		ball_vel = data->ball_vel.col(0);
 	}
 	else {
 		int N = (int) (T/deltat);
 		double Tdiff = T - N*deltat;
 		int Nmax = data->Nmax;
-
-		for (int i = 0; i < NCART; i++) {
-			if (N < Nmax - 1) {
-				ball_pos[i] = data->ball_pos(i,N) +
-						(Tdiff/deltat) * (data->ball_pos(i,N+1) - data->ball_pos(i,N));
-				ball_vel[i] = data->ball_vel(i,N) +
-						(Tdiff/deltat) * (data->ball_vel(i,N+1) - data->ball_vel(i,N));
-			}
-			else {
-				ball_pos[i] = data->ball_pos(i,Nmax-1);
-				ball_vel[i] = data->ball_vel(i,Nmax-1);
-			}
+		if (N < Nmax - 1) {
+			ball_pos = data->ball_pos.col(N) + (Tdiff/deltat) * (data->ball_pos.col(N+1) - data->ball_pos.col(N));
+			ball_vel = data->ball_vel.col(N) + (Tdiff/deltat) * (data->ball_vel.col(N+1) - data->ball_vel.col(N));
+		}
+		else {
+			ball_pos = data->ball_pos.col(Nmax-1);
+			ball_vel = data->ball_vel.col(Nmax-1);
 		}
 	}
 }
