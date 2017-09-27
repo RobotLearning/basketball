@@ -5,11 +5,137 @@
  *      Author: okan.koc
  */
 
+#include <boost/program_options.hpp>
 #include <armadillo>
 #include "constants.h"
 #include "ball.h"
 
 using namespace arma;
+
+/**
+ * Initialize ball state by guessing it from the string angle
+ */
+Ball::Ball() {
+
+	load_params("ball.cfg");
+	calc_ball_from_angle(param,pos,vel);
+}
+
+/**
+ * @brief Load ball prediction and other SIM parameters from a CONFIG file
+ * @param file_name_relative Relative file name (base is basketball)
+ *
+ */
+void Ball::load_params(const std::string & file_name_relative) {
+
+	namespace po = boost::program_options;
+	using namespace std;
+	string home = std::getenv("HOME");
+	string config_file = home + "/basketball/" + file_name_relative;
+
+	try {
+		// Declare a group of options that will be
+		// allowed in config file
+		po::options_description config("Configuration");
+		config.add_options()
+			("ball_radius", po::value<double>(&param.radius)->default_value(0.1213),
+					"RADIUS OF BALL")
+			("gravity", po::value<double>(&param.gravity)->default_value(-9.80),
+					"GRAVITY")
+			("friction", po::value<double>(&param.friction)->default_value(0.0),
+					"FRICTION OF PENDULUM STRING")
+			("string_length", po::value<double>(&param.string_len)->default_value(1.0),
+					"LENGTH OF PENDULUM STRING")
+			("base_pendulum", po::value<vector<double>>(&param.base_pendulum)->multitoken(),
+					"BASE OF PENDULUM AS A VECTOR")
+					;
+		po::variables_map vm;
+		ifstream ifs(config_file.c_str());
+		if (!ifs) {
+			cout << "can not open config file: " << config_file << "\n";
+		}
+		else {
+			po::store(parse_config_file(ifs, config), vm);
+			notify(vm);
+		}
+	}
+	catch(exception& e) {
+		cout << e.what() << "\n";
+	}
+}
+
+/**
+ * @brief Integrate ball positions and velocities with Symplectic Euler
+ *
+ * To integrate the ball first extract the theta and theta dot
+ * integrate them and then revert back to current ball pos
+ */
+void Ball::integrate_ball_state(double dt) {
+
+	ball_pendulum_model(dt, param);
+	calc_ball_from_angle(param, pos, vel);
+}
+
+/**
+ * @brief Integrate ball state and check for contact with robot.
+ *
+ * To integrate the ball first extract the theta and theta dot
+ * integrate them and then revert back to current ball pos
+ */
+void Ball::integrate_ball_state(const robot_state_hands & robot, double dt) {
+
+	ball_pendulum_model(dt, param);
+	calc_ball_from_angle(param, pos, vel);
+
+	if (CHECK_CONTACTS) {
+		check_for_contact(robot.left_pos, robot.left_vel, pos, param, vel);
+		check_for_contact(robot.right_pos, robot.right_vel, pos, param, vel);
+	}
+}
+
+void Ball::set_state(const vec6 & ball_state) {
+
+	pos = ball_state.head(NCART);
+	vel = ball_state.tail(NCART);
+}
+
+void Ball::set_state(const double ball_state[2*NCART]) {
+
+	for (int i = 0; i < NCART; i++) {
+		pos(i) = ball_state[i];
+		vel(i) = ball_state[i+NCART];
+	}
+}
+
+vec6 Ball::get_state() const {
+
+	return join_vert(pos,vel);
+}
+
+void Ball::get_state(double ball_state[2*NCART]) const {
+
+	for (int i = 0; i < NCART; i++) {
+		ball_state[i] = pos(i);
+		ball_state[i+NCART] = vel(i);
+	}
+}
+
+void Ball::get_env_params(ball_params & par) const {
+	par = param;
+}
+
+/**
+ * @brief Return environmental constants (loaded from a file by constructor)
+ */
+void Ball::get_env_params(double env_vars[6]) const {
+
+	env_vars[0] = param.string_len;
+	env_vars[1] = param.radius;
+	env_vars[2] = param.base_pendulum[X];
+	env_vars[3] = param.base_pendulum[Y];
+	env_vars[4] = param.base_pendulum[Z];
+	env_vars[5] = param.theta;
+}
 
 /**
  * @brief Function that integrates a basketball for an outside filter.
@@ -23,36 +149,33 @@ using namespace arma;
  */
 vec calc_next_ball(const vec & xnow, const double dt, const void *fp) {
 
-	vec3 ball_pos = xnow.head(3);
-	vec3 ball_vel = xnow.tail(3);
-	double theta, theta_dot;
-
-	// to integrate the ball first extract the theta and theta dot
-	// integrate them and then revert back to current ball pos
-	calc_angle_from_ball(ball_pos, ball_vel, theta, theta_dot);
-	ball_pendulum_model(dt, theta, theta_dot);
-	calc_ball_from_angle(theta, theta_dot, ball_pos, ball_vel);
-	return join_vert(ball_pos,ball_vel);
+	static Ball ball = Ball();
+	ball.set_state(xnow);
+	ball.integrate_ball_state(dt);
+	return ball.get_state();
 }
 
 
 /**
  * @brief Integrate the angle state of the pendulum string using Symplectic Euler.
  */
-void ball_pendulum_model(const double dt, double & theta, double & theta_dot) {
+void ball_pendulum_model(const double dt, ball_params & param) {
 
-	theta_dot += dt * (gravity * sin(theta) - friction * theta_dot);
-	theta += dt * theta_dot;
+	param.theta_dot += dt * (param.gravity * sin(param.theta) - param.friction * param.theta_dot);
+	param.theta += dt * param.theta_dot;
 }
 
 /**
  * Extract angle state from ball positions and velocities (only Y-velocity is used!)
  */
-void calc_angle_from_ball(const vec3 & ball_pos, const vec3 & ball_vel, double & theta, double & theta_dot) {
+void calc_angle_from_ball(const vec3 & ball_pos, const vec3 & ball_vel, ball_params & param) {
 
-	vec3 pos = ball_pos - base_pendulum;
-	theta = atan(pos(Y) / pos(Z));
-	theta_dot = -ball_vel(Y) / ((string_len + basketball_radius) * cos(theta));
+	vec3 pos = ball_pos;
+	for (int i = 0; i < NCART; i++) {
+		pos -= param.base_pendulum[i];
+	}
+	param.theta = atan(pos(Y) / pos(Z));
+	param.theta_dot = -ball_vel(Y) / ((param.string_len + param.radius) * cos(param.theta));
 }
 
 /**
@@ -61,15 +184,15 @@ void calc_angle_from_ball(const vec3 & ball_pos, const vec3 & ball_vel, double &
  * This method disregards previous computations on the ball state (if any) and constructs the whole
  * ball state from angle pos and velocities.
  */
-void calc_ball_from_angle(const double theta, const double theta_dot, vec3 & ball_pos, vec3 & ball_vel) {
+void calc_ball_from_angle(const ball_params & param, vec3 & ball_pos, vec3 & ball_vel) {
 
 	// we're in the third quadrant
-	ball_pos(X) = base_pendulum(X);
-	ball_pos(Y) = base_pendulum(Y) - (string_len + basketball_radius) * sin(theta);
-	ball_pos(Z) = base_pendulum(Z) - (string_len + basketball_radius) * cos(theta);
+	ball_pos(X) = param.base_pendulum[X];
+	ball_pos(Y) = param.base_pendulum[Y] - (param.string_len + param.radius) * sin(param.theta);
+	ball_pos(Z) = param.base_pendulum[Z] - (param.string_len + param.radius) * cos(param.theta);
 	ball_vel(X) = 0.0;
-	ball_vel(Y) = -(string_len + basketball_radius) * theta_dot * cos(theta);
-	ball_vel(Z) = (string_len + basketball_radius) * theta_dot * sin(theta);
+	ball_vel(Y) = -(param.string_len + param.radius) * param.theta_dot * cos(param.theta);
+	ball_vel(Z) = (param.string_len + param.radius) * param.theta_dot * sin(param.theta);
 }
 
 /**
@@ -80,14 +203,14 @@ void calc_ball_from_angle(const double theta, const double theta_dot, vec3 & bal
  * The contact model is an IDEAL MOMENTUM EXCHANGE assuming mass_robot >> mass_ball!
  */
 void check_for_contact(const vec3 & robot_pos, const vec3 & robot_vel, const vec3 & ball_pos,
-					   const double theta, vec3 & ball_vel, double & theta_dot) {
+					   ball_params & param, vec3 & ball_vel) {
 
-	if (norm(robot_pos - ball_pos) <= basketball_radius) { // contact occurs
+	if (norm(robot_pos - ball_pos) <= param.radius) { // contact occurs
 
 		// change velocities
 		ball_vel = -ball_vel + 2*robot_vel;
 		// change string angle velocity
-		theta_dot = -ball_vel(Y) / ((string_len + basketball_radius) * cos(theta));
+		param.theta_dot = -ball_vel(Y) / ((param.string_len + param.radius) * cos(param.theta));
 	}
 }
 

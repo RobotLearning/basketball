@@ -156,11 +156,4 @@ const int NENDEFF = N_MAX_ENDEFFECTORS;
 const double PI = 3.14159265358979323846;
 const double DT = 0.002; //!< 500 Hz robot operation
 
-/* Ball variables */
-const double basketball_radius  = 0.1213; //!< standard basketball radius
-const double gravity = -9.8;
-const double friction = 0.0;
-const double string_len = 1.0;
-const vec base_pendulum = {0.0, 0.9, 1.0};
-
 #endif /* INCLUDE_CONSTANTS_H_ */

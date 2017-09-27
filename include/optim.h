@@ -27,7 +27,6 @@ const int EQ_HIT_CONSTR_DIM = 2;
 const int INEQ_CONSTR_DIM = 2*NDOF_OPT + 2*NDOF_OPT; // both strike and returning trajectories, min and max
 const double MAX_VEL = 10;
 const double MAX_ACC = 200;
-const double THETA_DOT_DES = 1.0;
 
 using namespace arma;
 
@@ -92,7 +91,7 @@ struct weights {
  */
 class Optim {
 
-protected:
+private:
 
 	static const int OPTIM_DIM = 2*NDOF_OPT + 1; //!< dim. of optim problem
 	bool lookup = false; //!< use lookup table methods to init. optim params.
@@ -126,6 +125,7 @@ public:
 	vec qrest = zeros<vec>(NDOF_OPT); //!< Resting posture for optimizers to compute return traj.
 	vec q0 = zeros<vec>(NDOF_OPT); //!< Initial joint state needed to compute traj. acc.
 	vec q0dot = zeros<vec>(NDOF_OPT); //!< Initial joint velocities needed to compute traj. acc.
+	ball_params ballparams;
 
 	Optim();
 	Optim(const vec & qrest, const bool right = true, const bool touch = true);

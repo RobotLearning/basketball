@@ -156,43 +156,13 @@ void load_options() {
  */
 void integrate_ball_state(const double dt, const SL_Cstate robot_state[NENDEFF+1], double ball_state[6], double env_vars[6]) {
 
-	static double theta_dot = 0.0;
-	static double theta = 45.0 * (PI/180.0);
-	static vec3 left_hand_pos;
-	static vec3 right_hand_pos;
-	static vec3 left_hand_vel;
-	static vec3 right_hand_vel;
-	static vec3 ball_pos;
-	static vec3 ball_vel;
+	static Ball ball = Ball();
+	robot_state_hands hands(robot_state[LEFT_HAND].x,robot_state[RIGHT_HAND].x,
+			                robot_state[LEFT_HAND].xd,robot_state[RIGHT_HAND].xd,1);
 
-	for (int i = 0; i < NCART; i++) {
-		left_hand_pos(i) = robot_state[LEFT_HAND+1].x[i+1];
-		right_hand_pos(i) = robot_state[RIGHT_HAND+1].x[i+1];
-		left_hand_vel(i) = robot_state[LEFT_HAND+1].xd[i+1];
-		right_hand_vel(i) = robot_state[RIGHT_HAND+1].xd[i+1];
-		ball_pos(i) = ball_state[i];
-		ball_vel(i) = ball_state[i+NCART];
-	}
-
-	ball_pendulum_model(dt, theta, theta_dot);
-	// modify ball velocities in case of contact
-	check_for_contact(left_hand_pos,left_hand_vel,ball_pos,theta,ball_vel,theta_dot);
-	check_for_contact(right_hand_pos,right_hand_vel,ball_pos,theta,ball_vel,theta_dot);
-	calc_ball_from_angle(theta,theta_dot,ball_pos,ball_vel);
-
-	for (int i = 0; i < NCART; i++) {
-		ball_state[i] = ball_pos(i);
-		ball_state[i+NCART] = ball_vel(i);
-	}
-
-	env_vars[0] = string_len;
-	env_vars[1] = basketball_radius;
-	env_vars[2] = base_pendulum(X);
-	env_vars[3] = base_pendulum(Y);
-	env_vars[4] = base_pendulum(Z);
-	env_vars[5] = theta;
-	// send also the ball state
-
+	ball.integrate_ball_state(hands,dt);
+	ball.get_state(ball_state);
+	ball.get_env_params(env_vars);
 }
 
 /**

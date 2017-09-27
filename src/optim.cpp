@@ -36,6 +36,8 @@ static void first_order_hold(const optim_des* data, const double T, vec3 & ball_
  */
 Optim::Optim(const vec & qrest_, const bool right, const bool touch_) : right_arm(right), touch(touch_) {
 
+	Ball ball = Ball();
+	ball.get_env_params(ballparams);
 	qrest = qrest_;
 	vec tol_touch_eq = 1e-2 * ones<vec>(EQ_TOUCH_CONSTR_DIM);
 	vec tol_hit_eq = 1e-2 * ones<vec>(EQ_HIT_CONSTR_DIM);
@@ -436,7 +438,7 @@ static void touch_constr(unsigned m, double *result, unsigned n,
 	else
 		diff_norm = norm(pos_left - ball_centre_pos);
 
-	result[0] = diff_norm - basketball_radius;
+	result[0] = diff_norm - opt->ballparams.radius;
 }
 
 /*
@@ -448,7 +450,6 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 	thread_local vec3 ball_pos, ball_vel;
 	thread_local vec3 pos_right, pos_left, vel_right, vel_left;
 	thread_local double qf[NDOF_OPT], qfdot[NDOF_OPT];
-	thread_local double theta, theta_dot;
 	double T = x[2*NDOF_OPT];
 	double diff_norm = 0.0;
 
@@ -483,7 +484,7 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 
 	// compute the actual racket pos,vel and normal
 	calc_cart_pos_and_vel(opt->active_dofs,qf,qfdot,pos_left,pos_right,vel_left,vel_right);
-	calc_angle_from_ball(ball_pos,ball_vel,theta,theta_dot);
+	calc_angle_from_ball(ball_pos,ball_vel,opt->ballparams);
 
 	// deviations from the desired racket frame
 	if (opt->right_arm) {
@@ -491,18 +492,20 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 		// change velocities
 		ball_vel = -ball_vel + 2*vel_right;
 		// change string angle velocity
-		theta_dot = -ball_vel(Y) / ((string_len + basketball_radius) * cos(theta));
+		opt->ballparams.theta_dot = -ball_vel(Y) / ((opt->ballparams.string_len + opt->ballparams.radius)
+				                     * cos(opt->ballparams.theta));
 	}
 	else {
 		diff_norm = norm(pos_left - ball_pos);
 		// change velocities
 		ball_vel = -ball_vel + 2*vel_left;
 		// change string angle velocity
-		theta_dot = -ball_vel(Y) / ((string_len + basketball_radius) * cos(theta));
+		opt->ballparams.theta_dot = -ball_vel(Y) / ((opt->ballparams.string_len + opt->ballparams.radius)
+				                    * cos(opt->ballparams.theta));
 	}
 
-	result[0] = diff_norm - basketball_radius;
-	result[1] = theta_dot - THETA_DOT_DES;
+	result[0] = diff_norm - opt->ballparams.radius;
+	result[1] = opt->ballparams.theta_dot - opt->ballparams.theta_dot_des;
 }
 
 /*
