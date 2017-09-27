@@ -16,7 +16,7 @@ extern "C" {
 // Interface for Player
 extern void play(const SL_Jstate joint_state[], const blob_state *blobs, SL_DJstate joint_des_state[]);
 extern void cheat(const SL_Jstate joint_state[], const SL_Cstate *sim_ball_state, SL_DJstate joint_des_state[]);
-extern void integrate_ball_state(const double dt, double ball_state[6], double env_vars[6]);
+extern void integrate_ball_state(const double dt, const SL_Cstate robot_state[], double ball_state[], double env_vars[]);
 extern void load_options();
 
 #ifdef __cplusplus

@@ -112,6 +112,8 @@ void load_options() {
 			      "OUTLIER DETECTION FOR REAL ROBOT!")
 			("hand", po::value<int>(&optim_type)->default_value(0),
 				  "optimization type: LEFT_HAND = 0, RIGHT_HAND = 1, BOTH = 2")
+			("touch", po::value<bool>(&options.touch)->default_value(true),
+				  "only touch the ball if TRUE, hit the ball with des. velocity if FALSE")
 			("mpc", po::value<bool>(&options.mpc)->default_value(false),
 				 "corrections (MPC)")
 			("verbose", po::value<int>(&options.verbosity)->default_value(1),

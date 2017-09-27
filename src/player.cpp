@@ -52,12 +52,12 @@ Player::Player(const vec & q0, EKF & filter_, player_flags & flags)
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
 	//load_lookup_table(lookup_table);
 
-	opt_left = new Optim(q0.head(7), false);
+	opt_left = new Optim(q0.head(7), false, pflags.touch);
 	opt_left->set_return_time(pflags.time2return);
 	opt_left->set_verbose(pflags.verbosity > 1);
 	opt_left->set_detach(pflags.detach);
 
-	opt_right = new Optim(q0.tail(7), true);
+	opt_right = new Optim(q0.tail(7), true, pflags.touch);
 	opt_right->set_return_time(pflags.time2return);
 	opt_right->set_verbose(pflags.verbosity > 1);
 	opt_right->set_detach(pflags.detach);

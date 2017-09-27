@@ -31,6 +31,7 @@ struct player_flags {
 	bool mpc = false; //!< turn on/off corrections
 	bool reset = true; //!< reinitializing player class
 	bool save = false; //!< saving ball/robot data
+	bool touch = true; //!< touch if true or hit the ball with a desired velocity if false
 	int verbosity = 0; //!< OFF, LOW, HIGH, ALL
 	int freq_mpc = 1; //!< frequency of mpc updates if turned on
 	int min_obs = 5; //!< number of observations to initialize filter
