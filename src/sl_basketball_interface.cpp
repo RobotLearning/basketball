@@ -230,7 +230,7 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 		  const SL_Cstate *sim_ball_state,
 		  SL_DJstate joint_des_state[NDOF+1]) {
 
-	static vec7 q0;
+	static vec q0 = zeros<vec>(NDOF_ACTIVE);
 	static vec6 ball_state;
 	static joint qact;
 	static joint qdes;
@@ -253,6 +253,7 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 			qact.qd(i) = joint_state[active_dofs(i)+1].thd;
 			qact.qdd(i) = joint_state[active_dofs(i)+1].thdd;
 		}
+
 		for (int i = 0; i < NCART; i++) {
 			ball_state(i) = sim_ball_state->x[i+1];
 			ball_state(i+NCART) = sim_ball_state->xd[i+1];

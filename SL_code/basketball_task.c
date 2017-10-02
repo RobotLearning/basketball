@@ -24,6 +24,7 @@ typedef struct {
 
 blob_state ball_obs;
 SL_Cstate sim_ball_state;
+int simulation;
 
 #include "sl_basketball_interface.h"
 
@@ -37,9 +38,10 @@ static int change_basketball_task(void);
 
 
 /**
- * Simulates a ball attached to a string
+ * Simulates a ball attached to a string in SIMULATION mode
+ * Otherwise get the ball observations from SL's blobs[1] structure
  */
-static int simulate_ball(void) {
+static int update_ball_obs(void) {
 
 	int j, i;
 	static int firsttime = TRUE;
@@ -49,17 +51,23 @@ static int simulate_ball(void) {
 	static double ball_state[6];
 	static double env_vars[6];
 
-	if (firsttime) {
-		firsttime = FALSE;
+	if (simulation) {
+		integrate_ball_state(dt, cart_state, ball_state, env_vars);
+		sendUserGraphics("basketball_pendulum",env_vars,6*sizeof(double));
+
+		// fill the ball_obs structure for communicating to basketball lib
+		ball_obs.status = TRUE;
+		for (i = 0; i < 3; i++) {
+			sim_ball_state.x[i+1] = ball_state[i];
+			sim_ball_state.xd[i+1] = ball_state[i+3];
+			ball_obs.pos[i] = ball_state[i];
+		}
 	}
-
-	integrate_ball_state(dt, ball_state, env_vars);
-	sendUserGraphics("basketball_pendulum",env_vars,6*sizeof(double));
-
-	// fill the ball_obs structure for communicating to basketball lib
-	ball_obs.status = TRUE;
-	for (i = 0; i < 3; i++) {
-		ball_obs.pos[i] = ball_state[i];
+	else {
+		ball_obs.status = blobs[1].status;
+		for (i = 0; i < 3; i++) {
+			ball_obs.pos[i] = blobs[1].blob.x[i+1];
+		}
 	}
 
 	return TRUE;
@@ -80,6 +88,11 @@ static int init_basketball_task(void) {
 	for (i = 1; i <= N_DOFS; i++) {
 		joint_des_state[i].th = joint_default_state[i].th;
 		//printf("default_state[%d] = %f\n", i, joint_default_state[i].th);
+	}
+
+	get_int("Use simulated ball?", FALSE, &simulation);
+	if (simulation) {
+		printf("Testing BASKETBALL on the simulator...\n");
 	}
 
 	/* ready to go */
@@ -110,9 +123,9 @@ static int run_basketball_task(void) {
 	//printf("LEFT HAND = [%f,%f,%f]\n",cart_des_state[LEFT_HAND].x[1],cart_des_state[LEFT_HAND].x[2],cart_des_state[LEFT_HAND].x[3]);
 	//printf("RIGHT HAND = [%f,%f,%f]\n",cart_des_state[RIGHT_HAND].x[1],cart_des_state[RIGHT_HAND].x[2],cart_des_state[RIGHT_HAND].x[3]);
 
-	simulate_ball();
-	//cheat(joint_state, &sim_ball_state, joint_des_state);
-	play(joint_state, &ball_obs, joint_des_state); // basketball lib generates trajectories for touching the ball
+	update_ball_obs();
+	cheat(joint_state, &sim_ball_state, joint_des_state);
+	//play(joint_state, &ball_obs, joint_des_state); // basketball lib generates trajectories for touching the ball
 
 	check_range(joint_des_state); // Check if the trajectory is safe
 	SL_InverseDynamics(NULL, joint_des_state, endeff); // Feedforward control
