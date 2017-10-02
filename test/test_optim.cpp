@@ -40,6 +40,33 @@ inline void init_default_posture(const bool right, vec & q0) {
 	q0(6) = 0.0;
 }
 
+/**
+ * @brief Calculate minimum distance between robot hand and ball
+ */
+inline double calc_min_distance(const alg & optim_type, const mat & xdes, const mat & balls) {
+
+	// first get left hand min distance
+	mat diff = xdes.rows(0,2) - balls;
+	rowvec diff_norms = sqrt(sum(diff % diff,0));
+	uword idx = index_min(diff_norms);
+	double min_dist_left = diff_norms(idx);
+	// then get right hand min distance
+	diff = xdes.rows(3,5) - balls;
+	diff_norms = sqrt(sum(diff % diff,0));
+	idx = index_min(diff_norms);
+	double min_dist_right = diff_norms(idx);
+
+	if (optim_type == LEFT_HAND_OPT) {
+		return min_dist_left;
+	}
+	else if (optim_type == RIGHT_HAND_OPT) {
+		return min_dist_right;
+	}
+	else { // both hands were optimized
+		return fmax(min_dist_left,min_dist_right);
+	}
+}
+
 /*
  * Testing if the kinematics was copied correctly from SL
  */
@@ -157,9 +184,7 @@ BOOST_DATA_TEST_CASE(test_player, data::xrange(2) * data::xrange(3), touch, hand
 	//xdes.save("robot_cart.txt",csv_ascii);
 
 	// find the closest point between two curves
-	mat diff = xdes.rows(0,2) - balls;
-	rowvec diff_norms = sqrt(sum(diff % diff,0));
-	uword idx = index_min(diff_norms);
-	cout << "Minimum dist between ball and robot: \n" << diff_norms(idx) << endl;
-	BOOST_TEST(diff_norms(idx) <= basketball_radius, boost::test_tools::tolerance(0.01)); // distance should be less than 10 cm
+	double min_dist = calc_min_distance(flags.optim_type,xdes,balls);
+	cout << "Minimum dist between ball and robot: \n" << min_dist << endl;
+	BOOST_TEST(min_dist <= basketball_radius, boost::test_tools::tolerance(0.01)); // distance should be less than 10 cm
 }
