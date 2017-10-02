@@ -28,6 +28,7 @@ Ball::Ball() {
  */
 void Ball::load_params(const std::string & file_name_relative) {
 
+	const double deg2rad = PI/180;
 	namespace po = boost::program_options;
 	using namespace std;
 	string home = std::getenv("HOME");
@@ -38,6 +39,8 @@ void Ball::load_params(const std::string & file_name_relative) {
 		// allowed in config file
 		po::options_description config("Configuration");
 		config.add_options()
+			("verbose", po::value<bool>(&verbose)->default_value(false),
+					"VERBOSITY OF CONTACT")
 			("ball_radius", po::value<double>(&param.radius)->default_value(0.1213),
 					"RADIUS OF BALL")
 			//("gravity", po::value<double>(&param.gravity)->default_value(-9.80),
@@ -48,6 +51,10 @@ void Ball::load_params(const std::string & file_name_relative) {
 					"LENGTH OF PENDULUM STRING")
 			("base_pendulum", po::value<vector<double>>(&param.base_pendulum)->multitoken(),
 					"BASE OF PENDULUM AS A VECTOR")
+			("theta_init", po::value<double>(&param.theta)->default_value(-45.0),
+					"INITIAL PENDULUM ANGLE (DEGREES)")
+			("theta_dot_init", po::value<double>(&param.theta_dot)->default_value(0.0),
+										"INITIAL PENDULUM ANGULAR VELOCITY (DEG/SEC)")
 					;
 		po::variables_map vm;
 		ifstream ifs(config_file.c_str());
@@ -62,6 +69,8 @@ void Ball::load_params(const std::string & file_name_relative) {
 	catch(exception& e) {
 		cout << e.what() << "\n";
 	}
+	param.theta *= deg2rad;
+	param.theta_dot *= deg2rad;
 }
 
 /**
@@ -88,8 +97,8 @@ void Ball::integrate_ball_state(const robot_state_hands & robot, double dt) {
 	calc_ball_from_angle(param, pos, vel);
 
 	if (CHECK_CONTACTS) {
-		check_for_contact(robot.left_pos, robot.left_vel, pos, param, vel);
-		check_for_contact(robot.right_pos, robot.right_vel, pos, param, vel);
+		check_for_contact(robot.left_pos, robot.left_vel, pos, verbose, param, vel);
+		check_for_contact(robot.right_pos, robot.right_vel, pos, verbose, param, vel);
 	}
 }
 
@@ -202,11 +211,12 @@ void calc_ball_from_angle(const ball_params & param, vec3 & ball_pos, vec3 & bal
  * or equal to the ball radius.
  * The contact model is an IDEAL MOMENTUM EXCHANGE assuming mass_robot >> mass_ball!
  */
-void check_for_contact(const vec3 & robot_pos, const vec3 & robot_vel, const vec3 & ball_pos,
+void check_for_contact(const vec3 & robot_pos, const vec3 & robot_vel, const vec3 & ball_pos, const bool verbose,
 					   ball_params & param, vec3 & ball_vel) {
 
 	if (norm(robot_pos - ball_pos) <= param.radius) { // contact occurs
-
+		if (verbose)
+			cout << "Contact between ball and robot!\n";
 		// change velocities
 		ball_vel = -ball_vel + 2*robot_vel;
 		// change string angle velocity
