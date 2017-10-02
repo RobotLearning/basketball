@@ -1,9 +1,9 @@
 /*
  * test_optim.cpp
  *
- * Unit Tests for polynomial optimization
+ * Unit Tests for polynomial optimization applied to Basketball
  *
- *  Created on: Feb 17, 2017
+ *  Created on: September, 2017
  *      Author: okoc
  */
 
@@ -12,6 +12,8 @@
 #endif
 
 #include <boost/test/unit_test.hpp>
+#include <boost/test/data/test_case.hpp>
+#include <boost/test/data/monomorphic.hpp>
 #include <iostream>
 #include <armadillo>
 #include <thread>
@@ -20,6 +22,9 @@
 #include "player.hpp"
 
 using namespace arma;
+namespace data = boost::unit_test::data;
+std::string touch_str[2] = {"TOUCH", "HIT"};
+std::string hand_str[3] = {"LEFT HAND", "RIGHT HAND", "BOTH HANDS"};
 
 /*
  * Initialize default posture for CB only for the active joints
@@ -62,9 +67,10 @@ BOOST_AUTO_TEST_CASE(test_kinematics) {
  * Testing the optimization of a Basketball player touching a ball
  * attached to a string (moving in 2d: y and z axis)
  */
-BOOST_AUTO_TEST_CASE(test_optim) {
+BOOST_DATA_TEST_CASE(test_optim, data::xrange(2) * data::xrange(2), touch, hand) {
 
-	BOOST_TEST_MESSAGE("Testing the optimization for touch/hit...");
+	cout << "Testing the optimization for " << touch_str[touch]
+		 << " with " << hand_str[hand] << endl;
 	int N = 1000;
 	arma_rng::set_seed(1);
 	//arma_rng::set_seed_random();
@@ -84,51 +90,20 @@ BOOST_AUTO_TEST_CASE(test_optim) {
 	params.ball_pos = balls_pred.rows(X,Z);
 	params.ball_vel = balls_pred.rows(DX,DZ);
 
-	BOOST_TEST_MESSAGE("TOUCHING from the left side...");
-	Optim *opt = new Optim(q0,false);
-	opt->set_des_params(&params);
-	opt->update_init_state(qact);
-	opt->run();
-	bool update_left_side = opt->get_params(qact,poly);
-	delete opt;
-
-	BOOST_TEST_MESSAGE("TOUCHING from the right side...");
-	opt = new Optim(q0,true);
-	opt->set_des_params(&params);
-	opt->update_init_state(qact);
-	opt->run();
-	bool update_right_side = opt->get_params(qact,poly);
-	delete opt;
-
-	BOOST_TEST(update_right_side);
-	BOOST_TEST(update_left_side);
-
-	BOOST_TEST_MESSAGE("HITTING from the left side...");
-	opt = new Optim(q0,false,false);
-	opt->set_des_params(&params);
-	opt->update_init_state(qact);
-	opt->run();
-	update_right_side = opt->get_params(qact,poly);
-	delete opt;
-
-	BOOST_TEST_MESSAGE("HITTING from the right side...");
-	opt = new Optim(q0,true,false);
-	opt->set_des_params(&params);
-	opt->update_init_state(qact);
-	opt->run();
-	update_left_side = opt->get_params(qact,poly);
-	delete opt;
-
-	BOOST_TEST(update_right_side);
-	BOOST_TEST(update_left_side);
+	Optim opt = Optim(q0,hand,touch);
+	opt.set_des_params(&params);
+	opt.update_init_state(qact);
+	opt.run();
+	BOOST_TEST(opt.get_params(qact,poly));
 }
 
 /*
  * Testing whether the ball can be touched
  */
-BOOST_AUTO_TEST_CASE(test_touch_player) {
+BOOST_DATA_TEST_CASE(test_player, data::xrange(2) * data::xrange(3), touch, hand) {
 
-	BOOST_TEST_MESSAGE("Testing if the ball can be TOUCHED with RIGHT HAND...");
+	cout << "Testing the player for " << touch_str[touch]
+		 << " with " << hand_str[hand] << endl;
 
 	arma_rng::set_seed_random();
 	//arma_rng::set_seed(5);
@@ -148,8 +123,8 @@ BOOST_AUTO_TEST_CASE(test_touch_player) {
 	player_flags flags;
 	flags.detach = false;
 	flags.verbosity = 3;
-	flags.optim_type = RIGHT_HAND_OPT;
-	flags.touch = true;
+	flags.optim_type = (alg) hand;
+	flags.touch = (bool)touch;
 	Ball ball = Ball();
 	Player robot = Player(qact.q,filter,flags);
 	mat66 P; P.eye();
@@ -178,13 +153,13 @@ BOOST_AUTO_TEST_CASE(test_touch_player) {
 	}
 
 	// test for intersection on Cartesian space
-	balls.save("balls_pred.txt",csv_ascii);
-	xdes.save("robot_cart.txt",csv_ascii);
+	//balls.save("balls_pred.txt",csv_ascii);
+	//xdes.save("robot_cart.txt",csv_ascii);
 
 	// find the closest point between two curves
 	mat diff = xdes.rows(0,2) - balls;
 	rowvec diff_norms = sqrt(sum(diff % diff,0));
 	uword idx = index_min(diff_norms);
-	BOOST_TEST_MESSAGE("Minimum dist between ball and robot: \n" << diff_norms(idx));
+	cout << "Minimum dist between ball and robot: \n" << diff_norms(idx) << endl;
 	BOOST_TEST(diff_norms(idx) <= basketball_radius, boost::test_tools::tolerance(0.01)); // distance should be less than 10 cm
 }

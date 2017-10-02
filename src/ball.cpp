@@ -40,8 +40,8 @@ void Ball::load_params(const std::string & file_name_relative) {
 		config.add_options()
 			("ball_radius", po::value<double>(&param.radius)->default_value(0.1213),
 					"RADIUS OF BALL")
-			("gravity", po::value<double>(&param.gravity)->default_value(-9.80),
-					"GRAVITY")
+			//("gravity", po::value<double>(&param.gravity)->default_value(-9.80),
+			//		"GRAVITY")
 			("friction", po::value<double>(&param.friction)->default_value(0.0),
 					"FRICTION OF PENDULUM STRING")
 			("string_length", po::value<double>(&param.string_len)->default_value(1.0),
