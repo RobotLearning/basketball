@@ -71,6 +71,7 @@ static int simulate_ball(void) {
 	static double start_pos[N_CART] = {0.372, 0.336, 0.280};
 
 	// Ball simulator
+	pos[0] = 0.1213;
 	pos[_X_] = start_pos[0] + 0.1*sin(2.*PI*0.1*ball_speed*(task_servo_time-start_time));
 	pos[_Y_] = start_pos[1];
 	pos[_Z_] = start_pos[2];
@@ -83,7 +84,8 @@ static int simulate_ball(void) {
 	sim_ball_state.x[1] = pos[_X_];
 	sim_ball_state.x[2] = pos[_Y_];
 	sim_ball_state.x[3] = pos[_Z_];
-	for (i = 1; i <= 3; i++) {
+	sim_ball_state.xd[1] = 2.*PI*0.1*ball_speed*0.1*cos(2.*PI*0.1*ball_speed*(task_servo_time-start_time));
+	for (i = 2; i <= 3; i++) {
 		sim_ball_state.xd[i] = 0.0;
 	}
 
