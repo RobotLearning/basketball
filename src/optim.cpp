@@ -485,6 +485,7 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 	// compute the actual racket pos,vel and normal
 	calc_cart_pos_and_vel(opt->active_dofs,qf,qfdot,pos_left,pos_right,vel_left,vel_right);
 	calc_angle_from_ball(ball_pos,ball_vel,opt->ballparams);
+	//cout << "BALL VEL: " << ball_vel << "LEFT VEL " << vel_left << "RIGHT VEL " << vel_right;
 
 	// deviations from the desired racket frame
 	if (opt->right_arm) {

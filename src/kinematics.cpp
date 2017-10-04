@@ -89,6 +89,7 @@ void calc_cart_pos_and_vel(const ivec & active_dofs, const double q_active[], co
 	}
 
 	q = q_default;
+	qdot = q_default;
 	for (int i = 0; i < active_dofs.n_elem; i++) {
 		q(active_dofs[i]) = q_active[i];
 		qdot(active_dofs[i]) = qdot_active[i];
@@ -104,6 +105,7 @@ void calc_cart_pos_and_vel(const ivec & active_dofs, const double q_active[], co
 
 	jacobian(link,origin,axis,jac);
 	vec vel = jac * qdot;
+	//cout << "CART VEL: " << vel.t();
 	vel_left = vel(span(0,2));
 	vel_right = vel(span(6,8));
 }

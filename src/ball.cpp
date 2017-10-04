@@ -55,6 +55,8 @@ void Ball::load_params(const std::string & file_name_relative) {
 					"INITIAL PENDULUM ANGLE (DEGREES)")
 			("theta_dot_init", po::value<double>(&param.theta_dot)->default_value(0.0),
 										"INITIAL PENDULUM ANGULAR VELOCITY (DEG/SEC)")
+			("theta_dot_des", po::value<double>(&param.theta_dot_des)->default_value(0.0),
+										"DESIRED PENDULUM ANGULAR VELOCITY (RAD/SEC)")
 					;
 		po::variables_map vm;
 		ifstream ifs(config_file.c_str());

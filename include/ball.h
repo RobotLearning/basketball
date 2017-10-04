@@ -47,7 +47,7 @@ struct ball_params {
 	double theta_dot = 0.0;
 
 	// desired parameters
-	double theta_dot_des = 1.0;
+	double theta_dot_des = -1.0;
 	std::vector<double> base_pendulum = {0.0, 0.9, 1.0};
 };
 

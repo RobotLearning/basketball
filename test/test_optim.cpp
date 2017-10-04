@@ -76,7 +76,6 @@ BOOST_AUTO_TEST_CASE(test_kinematics) {
 
 	BOOST_TEST_MESSAGE("Testing kinematics close to default posture...");
 
-	ivec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
 	//double q_active[NDOF_OPT] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
 	double q_active[NDOF_ACTIVE] = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
 								 0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
@@ -88,6 +87,51 @@ BOOST_AUTO_TEST_CASE(test_kinematics) {
 	calc_cart_pos(active_dofs,q_active,pos_left,pos_right);
 	BOOST_TEST(approx_equal(pos_left,pos_des_left,"absdiff", 0.002)); //boost::test_tools::tolerance(0.01)
 	BOOST_TEST(approx_equal(pos_right,pos_des_right,"absdiff", 0.002)); //boost::test_tools::tolerance(0.01)
+}
+
+/*
+ * Compare jacobian multiplied velocities to numerical differentiated cartesian positions
+ */
+BOOST_AUTO_TEST_CASE(test_jacobian) {
+
+	BOOST_TEST_MESSAGE("Comparing exact geometric jacobian to numerical diff. of kinematics ...");
+
+	//double q_active[NDOF_OPT] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
+	double q_active[NDOF_ACTIVE] = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
+								    0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
+	double qdot_active[NDOF_ACTIVE];
+	double q_perturb[NDOF_ACTIVE];
+
+	vec3 pos_left, pos_right, vel_left, vel_right;
+	vec3 pos_diff_left, pos_diff_right, vel_diff_left, vel_diff_right;
+
+	calc_cart_pos(active_dofs,q_active,pos_left,pos_right);
+
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+
+		// perturb q
+		for (int j = 0; j < NDOF_ACTIVE; j++) {
+			qdot_active[j] = 0.0;
+			q_perturb[j] = q_active[j];
+		}
+		qdot_active[i] = 1.0;
+		q_perturb[i] += qdot_active[i] * DT;
+
+		// capture new cart. pos
+		calc_cart_pos(active_dofs,q_perturb,pos_diff_left,pos_diff_right);
+
+		// and num. diff. positions
+		vel_diff_left = (pos_diff_left - pos_left) / DT;
+		vel_diff_right = (pos_diff_right - pos_right) / DT;
+
+		// compare with jacobian calculated positions
+		calc_cart_pos_and_vel(active_dofs,q_active,qdot_active,pos_left,pos_right,vel_left,vel_right);
+
+		cout << endl << "VEL_LEFT: " << vel_left.t() << " vs. " << vel_diff_left.t();
+		cout << "VEL_RIGHT: " << vel_right.t() << " vs. " << vel_diff_right.t() << endl;
+		BOOST_TEST(approx_equal(vel_left,vel_diff_left,"abs_diff",0.002));
+		BOOST_TEST(approx_equal(vel_right,vel_diff_right,"abs_diff",0.002));
+	}
 }
 
 /*
@@ -125,17 +169,19 @@ BOOST_DATA_TEST_CASE(test_optim, data::xrange(2) * data::xrange(2), touch, hand)
 }
 
 /*
- * Testing whether the ball can be touched
+ * Testing whether the ball can be touched.
+ * The combinations are : LEFT HAND/RIGHT HAND, HIT/TOUCH, PLAY/CHEAT
  */
-BOOST_DATA_TEST_CASE(test_player, data::xrange(2) * data::xrange(3), touch, hand) {
+BOOST_AUTO_TEST_CASE(test_player) {
 
-	cout << "Testing the player for " << touch_str[touch]
-		 << " with " << hand_str[hand] << endl;
+
+	cout << endl << "Testing the player for " << touch_str[1]
+		 << " with " << hand_str[2] << endl;
 
 	arma_rng::set_seed_random();
 	//arma_rng::set_seed(5);
 	const double basketball_radius = 0.1213;
-	int N = 500;
+	int N = 1000;
 	joint qact;
 	joint qdes;
 	vec7 q0;
@@ -150,8 +196,8 @@ BOOST_DATA_TEST_CASE(test_player, data::xrange(2) * data::xrange(3), touch, hand
 	player_flags flags;
 	flags.detach = false;
 	flags.verbosity = 3;
-	flags.optim_type = (alg) hand;
-	flags.touch = (bool)touch;
+	flags.optim_type = BOTH_HAND_OPT;
+	flags.touch = false;
 	Ball ball = Ball();
 	Player robot = Player(qact.q,filter,flags);
 	mat66 P; P.eye();
@@ -167,7 +213,9 @@ BOOST_DATA_TEST_CASE(test_player, data::xrange(2) * data::xrange(3), touch, hand
 		balls.col(i) = ball_obs;
 
 		// play
-		//robot.play(qact, ball_obs, qdes);
+		//if (play)
+		//	robot.play(qact, ball_obs, qdes);
+		//else
 		robot.cheat(qact, ball_state, qdes);
 
 		// get cartesian state
@@ -180,8 +228,8 @@ BOOST_DATA_TEST_CASE(test_player, data::xrange(2) * data::xrange(3), touch, hand
 	}
 
 	// test for intersection on Cartesian space
-	//balls.save("balls_pred.txt",csv_ascii);
-	//xdes.save("robot_cart.txt",csv_ascii);
+	balls.save("balls_pred.txt",csv_ascii);
+	xdes.save("robot_cart.txt",csv_ascii);
 
 	// find the closest point between two curves
 	double min_dist = calc_min_distance(flags.optim_type,xdes,balls);
