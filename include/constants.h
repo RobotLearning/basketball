@@ -128,7 +128,7 @@ enum RobotLinks {
   N_ROBOT_LINKS
 };
 
-/*! endeffector information */
+/** endeffector indices of cart_des_state from SL */
 enum RobotEndeffectors {
 
 	RIGHT_HAND,

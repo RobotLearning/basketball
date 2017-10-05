@@ -78,9 +78,9 @@ void calc_cart_pos_and_vel(const ivec & active_dofs, const double q_active[], co
 	static double axis[NDOF+1][3+1];
 	static double amats[NDOF+1][4+1][4+1];
 	static vec q_default = zeros<vec>(NDOF);
-	static mat jac = zeros<mat>(2*NENDEFF*NCART,NDOF);
 	static bool firsttime = true;
 	thread_local vec q = zeros<vec>(NDOF);
+	thread_local mat jac = zeros<mat>(2*NENDEFF*NCART,NDOF);
 	thread_local vec qdot = zeros<vec>(NDOF);
 
 	if (firsttime) {
@@ -89,7 +89,7 @@ void calc_cart_pos_and_vel(const ivec & active_dofs, const double q_active[], co
 	}
 
 	q = q_default;
-	qdot = q_default;
+	qdot = zeros<vec>(NDOF);
 	for (int i = 0; i < active_dofs.n_elem; i++) {
 		q(active_dofs[i]) = q_active[i];
 		qdot(active_dofs[i]) = qdot_active[i];
@@ -105,6 +105,7 @@ void calc_cart_pos_and_vel(const ivec & active_dofs, const double q_active[], co
 
 	jacobian(link,origin,axis,jac);
 	vec vel = jac * qdot;
+	//cout << jac;
 	//cout << "CART VEL: " << vel.t();
 	vel_left = vel(span(0,2));
 	vel_right = vel(span(6,8));
@@ -3068,17 +3069,34 @@ static void jacobian(const double link[NLINK+1][4],
 					 const double axis[NDOF+1][4],
 					 mat & jac) {
 
-	static double c[2*NCART];
+	static int firsttime = true;
+	static mat Jlist = zeros<mat>(NENDEFF,NDOF);
+
+	if (firsttime) {
+		firsttime = false;
+		Jlist(1,span(7,13)) = ones<rowvec>(7); // right arm
+		Jlist(1,span(28,30)) = ones<rowvec>(3);
+		Jlist(0,span(0,6)) = ones<rowvec>(7); // left arm
+		Jlist(0,span(28,30)) = ones<rowvec>(3);
+		Jlist(2,span(21,27)) = ones<rowvec>(7);
+		Jlist(3,span(14,20)) = ones<rowvec>(7);
+	}
+
+	static vec6 c;
 	for (int i = 0; i < NENDEFF; i++) {
-		for (int j = 1; j <= NDOF; ++j) {
-			c[0] = axis[j][2] * (link[link2endeffmap(i)][3] - origin[j][3]) - axis[j][3] * (link[link2endeffmap(i)][2]-origin[j][2]);
-			c[1] = axis[j][3] * (link[link2endeffmap(i)][1] - origin[j][1]) - axis[j][1] * (link[link2endeffmap(i)][3]-origin[j][3]);
-			c[2] = axis[j][1] * (link[link2endeffmap(i)][2] - origin[j][2]) - axis[j][2] * (link[link2endeffmap(i)][1]-origin[j][1]);
-			c[3] = axis[j][1];
-			c[4] = axis[j][2];
-			c[5] = axis[j][3];
-			for (int k = 0; k < 2*NCART; k++)
-				jac(i*2*NCART + k,j-1) = c[k];
+		for (int j = 0; j < NDOF; ++j) {
+			if (Jlist(i,j) != 0) {
+				c(X) = axis[j+1][2] * (link[link2endeffmap(i)][3] - origin[j+1][3]) - axis[j+1][3] * (link[link2endeffmap(i)][2]-origin[j+1][2]);
+				c(Y) = axis[j+1][3] * (link[link2endeffmap(i)][1] - origin[j+1][1]) - axis[j+1][1] * (link[link2endeffmap(i)][3]-origin[j+1][3]);
+				c(Z) = axis[j+1][1] * (link[link2endeffmap(i)][2] - origin[j+1][2]) - axis[j+1][2] * (link[link2endeffmap(i)][1]-origin[j+1][1]);
+				c(DX) = axis[j+1][1];
+				c(DY) = axis[j+1][2];
+				c(DZ) = axis[j+1][3];
+				jac(span(i*2*NCART,(i+1)*2*NCART-1),j) = c;
+			}
+			else {
+				jac(span(i*2*NCART,(i+1)*2*NCART-1),j) = zeros<vec>(2*NCART);
+			}
 		}
 	}
 }
