@@ -23,8 +23,6 @@
 
 using namespace arma;
 namespace data = boost::unit_test::data;
-std::string touch_str[2] = {"TOUCH", "HIT"};
-std::string hand_str[3] = {"LEFT HAND", "RIGHT HAND", "BOTH HANDS"};
 
 /*
  * Initialize default posture for CB only for the active joints
@@ -87,8 +85,8 @@ BOOST_AUTO_TEST_CASE(test_kinematics) {
 	//LEFT HAND = [-0.274531,0.329705,0.213198]
 
 	calc_cart_pos(active_dofs,q_active,pos_left,pos_right);
-	cout << endl << "POS_DES_LEFT: " << pos_des_left.t() << " vs. POS_LEFT:" << pos_left.t();
-	cout << endl << "POS_DES_RIGHT: " << pos_des_right.t() << " vs. POS_RIGHT:" << pos_right.t();
+	//cout << endl << "POS_DES_LEFT: " << pos_des_left.t() << " vs. POS_LEFT:" << pos_left.t();
+	//cout << endl << "POS_DES_RIGHT: " << pos_des_right.t() << " vs. POS_RIGHT:" << pos_right.t();
 	BOOST_TEST(approx_equal(pos_left,pos_des_left,"absdiff", 0.002)); //boost::test_tools::tolerance(0.01)
 	BOOST_TEST(approx_equal(pos_right,pos_des_right,"absdiff", 0.002)); //boost::test_tools::tolerance(0.01)
 }
@@ -98,7 +96,7 @@ BOOST_AUTO_TEST_CASE(test_kinematics) {
  */
 BOOST_AUTO_TEST_CASE(test_jacobian) {
 
-	BOOST_TEST_MESSAGE("Comparing exact geometric jacobian to numerical diff. of kinematics ...");
+	BOOST_TEST_MESSAGE("\nComparing exact geometric jacobian to numerical diff. of kinematics ...");
 
 	const double dt = 1e-5;
 	//double q_active[NDOF_OPT] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
@@ -145,101 +143,100 @@ BOOST_AUTO_TEST_CASE(test_jacobian) {
  * Testing the optimization of a Basketball player touching a ball
  * attached to a string (moving in 2d: y and z axis)
  */
-//BOOST_DATA_TEST_CASE(test_optim, data::xrange(2) * data::xrange(2), touch, hand) {
-//
-//	cout << "Testing the optimization for " << touch_str[touch]
-//		 << " with " << hand_str[hand] << endl;
-//	int N = 1000;
-//	arma_rng::set_seed(1);
-//	//arma_rng::set_seed_random();
-//	vec q0 = zeros<vec>(NDOF_OPT);
-//	joint qact;
-//	spline_params poly;
-//	Ball ball = Ball();
-//	vec6 ball_state = ball.get_state();
-//	init_default_posture(true,q0);
-//	qact.q = join_vert(q0,q0);
-//	EKF filter = init_filter();
-//	mat66 P; P.eye();
-//	filter.set_prior(ball_state,P);
-//	mat balls_pred = filter.predict_path(DT,N);
-//	optim_des params;
-//	params.Nmax = 1000;
-//	params.ball_pos = balls_pred.rows(X,Z);
-//	params.ball_vel = balls_pred.rows(DX,DZ);
-//
-//	Optim opt = Optim(q0,hand,touch);
-//	opt.set_des_params(&params);
-//	opt.update_init_state(qact);
-//	opt.run();
-//	BOOST_TEST(opt.get_params(qact,poly));
-//}
+BOOST_DATA_TEST_CASE(test_optim, data::xrange(2) * data::xrange(2), touch, hand) {
+
+	std::string touch_str[2] = {"TOUCH", "HIT"};
+	std::string hand_str[2] = {"LEFT HAND", "RIGHT HAND"};
+	cout << "\nTesting the optimization for " << touch_str[touch]
+		 << " with " << hand_str[hand] << endl;
+	int N = 1000;
+	arma_rng::set_seed(1);
+	//arma_rng::set_seed_random();
+	vec q0 = zeros<vec>(NDOF_OPT);
+	joint qact;
+	spline_params poly;
+	Ball ball = Ball();
+	vec6 ball_state = ball.get_state();
+	init_default_posture(true,q0);
+	qact.q = join_vert(q0,q0);
+	EKF filter = init_filter();
+	mat66 P; P.eye();
+	filter.set_prior(ball_state,P);
+	mat balls_pred = filter.predict_path(DT,N);
+	optim_des params;
+	params.Nmax = 1000;
+	params.ball_pos = balls_pred.rows(X,Z);
+	params.ball_vel = balls_pred.rows(DX,DZ);
+
+	Optim opt = Optim(q0,hand,touch);
+	opt.set_des_params(&params);
+	opt.update_init_state(qact);
+	opt.run();
+	BOOST_TEST(opt.get_params(qact,poly));
+}
 
 /*
  * Testing whether the ball can be touched.
- * The combinations are : LEFT HAND/RIGHT HAND, HIT/TOUCH, PLAY/CHEAT
+ * The combinations are : LEFT HAND/RIGHT HAND/BOTH HANDS, HIT/TOUCH, PLAY/CHEAT
  */
-//BOOST_AUTO_TEST_CASE(test_player) {
-//
-//
-//	cout << endl << "Testing the player for " << touch_str[1]
-//		 << " with " << hand_str[2] << endl;
-//
-//	arma_rng::set_seed_random();
-//	//arma_rng::set_seed(5);
-//	const double basketball_radius = 0.1213;
-//	int N = 1000;
-//	joint qact;
-//	joint qdes;
-//	vec7 q0;
-//	vec6 ball_state;
-//	vec3 ball_obs;
-//	vec3 pos_left, pos_right;
-//	ivec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
-//	init_default_posture(true,q0);
-//	qdes.q = join_vert(q0,q0);
-//	qact.q = qdes.q;
-//	EKF filter = init_filter();
-//	player_flags flags;
-//	flags.detach = false;
-//	flags.verbosity = 3;
-//	flags.optim_type = BOTH_HAND_OPT;
-//	flags.touch = false;
-//	Ball ball = Ball();
-//	Player robot = Player(qact.q,filter,flags);
-//	mat66 P; P.eye();
-//	mat xdes = zeros<mat>(2*NCART,N);
-//	mat balls = zeros<mat>(NCART,N);
-//
-//	for (int i = 0; i < N; i++) {
-//
-//		// move the ball
-//		ball.integrate_ball_state(DT);
-//		ball_state = ball.get_state();
-//		ball_obs = ball_state.head(NCART);
-//		balls.col(i) = ball_obs;
-//
-//		// play
-//		//if (play)
-//		//	robot.play(qact, ball_obs, qdes);
-//		//else
-//		robot.cheat(qact, ball_state, qdes);
-//
-//		// get cartesian state
-//		calc_cart_pos(active_dofs,qdes.q.memptr(),pos_left,pos_right);
-//		xdes.col(i) = join_vert(pos_left,pos_right);
-//
-//		usleep(DT*1e6);
-//		qact.q = qdes.q;
-//		qact.qd = qdes.qd;
-//	}
-//
-//	// test for intersection on Cartesian space
-//	balls.save("balls_pred.txt",csv_ascii);
-//	xdes.save("robot_cart.txt",csv_ascii);
-//
-//	// find the closest point between two curves
-//	double min_dist = calc_min_distance(flags.optim_type,xdes,balls);
-//	cout << "Minimum dist between ball and robot: \n" << min_dist << endl;
-//	BOOST_TEST(min_dist <= basketball_radius, boost::test_tools::tolerance(0.01)); // distance should be less than 10 cm
-//}
+BOOST_AUTO_TEST_CASE(test_player) {
+
+
+	BOOST_TEST_MESSAGE("\nTesting the player for HITTING with BOTH HANDS");
+
+	arma_rng::set_seed_random();
+	//arma_rng::set_seed(5);
+	const double basketball_radius = 0.1213;
+	int N = 1000;
+	joint qact;
+	joint qdes;
+	vec7 q0;
+	vec6 ball_state;
+	vec3 ball_obs;
+	init_default_posture(true,q0);
+	qdes.q = join_vert(q0,q0);
+	qact.q = qdes.q;
+	EKF filter = init_filter();
+	player_flags flags;
+	flags.detach = false;
+	flags.verbosity = 3;
+	flags.optim_type = BOTH_HAND_OPT;
+	flags.touch = true;
+	Ball ball = Ball();
+	Player robot = Player(qact.q,filter,flags);
+	mat66 P; P.eye();
+	mat xdes = zeros<mat>(2*NCART,N);
+	mat balls_pos = zeros<mat>(NCART,N);
+	robot_hands hands;
+
+	for (int i = 0; i < N; i++) {
+
+		// move the ball
+		ball.integrate_ball_state(hands,DT);
+		ball_state = ball.get_state();
+		ball_obs = ball_state.head(NCART);
+		balls_pos.col(i) = ball_obs;
+
+		robot.play(qact, ball_obs, qdes);
+		//robot.cheat(qact, ball_state, qdes);
+
+		// get cartesian state
+		//calc_cart_pos(active_dofs,qdes.q.memptr(),pos_left,pos_right);
+		calc_cart_pos_and_vel(active_dofs, qdes, hands);
+
+		xdes.col(i) = join_vert(hands.left_pos, hands.right_pos);
+
+		usleep(DT*1e6);
+		qact.q = qdes.q;
+		qact.qd = qdes.qd;
+	}
+
+	// test for intersection on Cartesian space
+	balls_pos.save("balls_pos.txt",csv_ascii);
+	xdes.save("robot_cart.txt",csv_ascii);
+
+	// find the closest point between two curves
+	double min_dist = calc_min_distance(flags.optim_type,xdes,balls_pos);
+	cout << "Minimum dist between ball and robot: \n" << min_dist << endl;
+	BOOST_TEST(min_dist <= basketball_radius + 0.01); // distance should be less than radius + 1cm tol.
+}

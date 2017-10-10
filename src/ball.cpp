@@ -93,7 +93,7 @@ void Ball::integrate_ball_state(double dt) {
  * To integrate the ball first extract the theta and theta dot
  * integrate them and then revert back to current ball pos
  */
-void Ball::integrate_ball_state(const robot_state_hands & robot, double dt) {
+void Ball::integrate_ball_state(const robot_hands & robot, double dt) {
 
 	ball_pendulum_model(dt, param);
 	calc_ball_from_angle(param, pos, vel);

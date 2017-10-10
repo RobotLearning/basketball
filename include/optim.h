@@ -118,7 +118,7 @@ public:
 
 	double time2return = 0.5; //!< Desired time to return to resting state
 	bool right_arm = true; //!< optimize the right arm if TRUE, left arm if FALSE
-	ivec active_dofs = zeros<ivec>(NDOF_OPT);
+	uvec active_dofs = zeros<uvec>(NDOF_OPT);
 	optim_des *param_des; //!< Desired racket and/or ball predicted vals.
 	vec lb = zeros<vec>(2*NDOF_OPT+1); //!< Joint lower limits, joint vel. lower limit and min. hitting time
 	vec ub = zeros<vec>(2*NDOF_OPT+1); //!< Joint upper limits, joint vel. upper limit and max. hitting time
@@ -162,6 +162,6 @@ void calc_return_extrema_cand(const double *a1, const double *a2,
 double calc_max_acc_violation(const double x[2*NDOF_OPT+1], const vec & q0, const vec & q0dot);
 
 // set upper and lower bounds for optimization
-void set_bounds(const ivec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub);
+void set_bounds(const uvec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub);
 
 #endif /* OPTIMPOLY_H_ */

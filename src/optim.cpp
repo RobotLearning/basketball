@@ -39,8 +39,8 @@ Optim::Optim(const vec & qrest_, const bool right, const bool touch_) : right_ar
 	Ball ball = Ball();
 	ball.get_env_params(ballparams);
 	qrest = qrest_;
-	vec tol_touch_eq = 1e-2 * ones<vec>(EQ_TOUCH_CONSTR_DIM);
-	vec tol_hit_eq = 1e-2 * ones<vec>(EQ_HIT_CONSTR_DIM);
+	vec tol_touch_eq = 1e-3 * ones<vec>(EQ_TOUCH_CONSTR_DIM);
+	vec tol_hit_eq = 1e-3 * ones<vec>(EQ_HIT_CONSTR_DIM);
 	vec tol_ineq = 1e-3 * ones<vec>(INEQ_CONSTR_DIM);
 
 	double SLACK = 0.02;
@@ -485,7 +485,10 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 	// compute the actual racket pos,vel and normal
 	calc_cart_pos_and_vel(opt->active_dofs,qf,qfdot,pos_left,pos_right,vel_left,vel_right);
 	calc_angle_from_ball(ball_pos,ball_vel,opt->ballparams);
-	//cout << "BALL VEL: " << ball_vel << "LEFT VEL " << vel_left << "RIGHT VEL " << vel_right;
+
+	/*cout << "BALL VEL: " << ball_vel.t();
+	cout << "LEFT VEL " << vel_left.t();
+	cout << "RIGHT VEL " << vel_right.t();*/
 
 	// deviations from the desired racket frame
 	if (opt->right_arm) {
@@ -504,7 +507,9 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 		opt->ballparams.theta_dot = -ball_vel(Y) / ((opt->ballparams.string_len + opt->ballparams.radius)
 				                    * cos(opt->ballparams.theta));
 	}
-
+	/*cout << "THETA POS: " << opt->ballparams.theta << endl;
+	cout << "THETA VEL: " << opt->ballparams.theta_dot;
+	cout << endl;*/
 	result[0] = diff_norm - opt->ballparams.radius;
 	result[1] = opt->ballparams.theta_dot - opt->ballparams.theta_dot_des;
 }
@@ -763,7 +768,7 @@ static bool check_optim_result(const int res) {
  * Set upper and lower bounds on the optimization.
  * First loads the joint limits and then puts some slack
  */
-void set_bounds(const ivec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub) {
+void set_bounds(const uvec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub) {
 
 	vec lb_full = zeros<vec>(NDOF);
 	vec ub_full = zeros<vec>(NDOF);

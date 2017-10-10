@@ -157,7 +157,7 @@ void load_options() {
 void integrate_ball_state(const double dt, const SL_Cstate robot_state[NENDEFF+1], double ball_state[6], double env_vars[6]) {
 
 	static Ball ball = Ball();
-	robot_state_hands hands(robot_state[LEFT_HAND].x,robot_state[RIGHT_HAND].x,
+	robot_hands hands(robot_state[LEFT_HAND].x,robot_state[RIGHT_HAND].x,
 			                robot_state[LEFT_HAND].xd,robot_state[RIGHT_HAND].xd,1);
 
 	ball.integrate_ball_state(hands,dt);

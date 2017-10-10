@@ -114,21 +114,26 @@ static int run_basketball_task(void) {
 	double t = servo_time - start_time; // Current time
 	int i, j;
 
+	//for (i = 1; i <= N_DOFS; i++) {
+	//	joint_des_state[i].th = joint_default_state[i].th;
+	//	//printf("default_state[%d] = %f\n", i, joint_default_state[i].th);
+	//}
+
 	//printf("t = %f\n",t);
-	/*printf("basec = [%f,%f,%f]\n",base_state.x[1],base_state.x[2],base_state.x[3]);
-	printf("baseo = [%f,%f,%f,%f]\n",base_orient.q[1],base_orient.q[2],base_orient.q[3],base_orient.q[4]);
-	printf("effx = [%f,%f,%f]\n",endeff[RIGHT_HAND].x[1],endeff[RIGHT_HAND].x[2],endeff[RIGHT_HAND].x[3]);
-	printf("effo = [%f,%f,%f]\n",endeff[RIGHT_HAND].a[1],endeff[RIGHT_HAND].a[2],endeff[RIGHT_HAND].a[3]);*/
+	//printf("basec = [%f,%f,%f]\n",base_state.x[1],base_state.x[2],base_state.x[3]);
+	//printf("baseo = [%f,%f,%f,%f]\n",base_orient.q[1],base_orient.q[2],base_orient.q[3],base_orient.q[4]);
+	//printf("effx = [%f,%f,%f]\n",endeff[RIGHT_HAND].x[1],endeff[RIGHT_HAND].x[2],endeff[RIGHT_HAND].x[3]);
+	//printf("effo = [%f,%f,%f]\n",endeff[RIGHT_HAND].a[1],endeff[RIGHT_HAND].a[2],endeff[RIGHT_HAND].a[3]);
 	//printf("x = [%f,%f,%f]\n",cart_state[RIGHT_HAND].x[1],cart_state[RIGHT_HAND].x[2],cart_state[RIGHT_HAND].x[3]);
 	//printf("LEFT HAND = [%f,%f,%f]\n",cart_des_state[LEFT_HAND].x[1],cart_des_state[LEFT_HAND].x[2],cart_des_state[LEFT_HAND].x[3]);
 	//printf("RIGHT HAND = [%f,%f,%f]\n",cart_des_state[RIGHT_HAND].x[1],cart_des_state[RIGHT_HAND].x[2],cart_des_state[RIGHT_HAND].x[3]);
 
 	update_ball_obs();
-	cheat(joint_state, &sim_ball_state, joint_des_state);
-	//play(joint_state, &ball_obs, joint_des_state); // basketball lib generates trajectories for touching the ball
+	//cheat(joint_state, &sim_ball_state, joint_des_state);
+	play(joint_state, &ball_obs, joint_des_state); // basketball lib generates trajectories for touching the ball
 
 	check_range(joint_des_state); // Check if the trajectory is safe
-	SL_InverseDynamics(NULL, joint_des_state, endeff); // Feedforward control
+	//SL_InverseDynamics(NULL, joint_des_state, endeff); // Feedforward control
 	//SL_InverseDynamics(joint_state, joint_des_state, endeff);
 
 	return TRUE;

@@ -20,6 +20,7 @@
 #include <sstream>
 #include <iostream>
 #include "kinematics.h"
+#include "optim.h"
 
 using namespace arma;
 
@@ -39,7 +40,7 @@ static void read_default_state(vec & q_default);
 /**
  * @brief Returns the cartesian endeffector positions
  */
-void calc_cart_pos(const ivec & active_dofs, const double q_active[], vec & pos_left, vec & pos_right) {
+void calc_cart_pos(const uvec & active_dofs, const double q_active[], vec & pos_left, vec & pos_right) {
 
 	static double link[NLINK+1][3+1];
 	static double origin[NDOF+1][3+1];
@@ -70,7 +71,7 @@ void calc_cart_pos(const ivec & active_dofs, const double q_active[], vec & pos_
 /**
  * @brief Returns the cartesian positions and velocities of LEFT HAND and RIGHT HAND
  */
-void calc_cart_pos_and_vel(const ivec & active_dofs, const double q_active[], const double qdot_active[],
+void calc_cart_pos_and_vel(const uvec & active_dofs, const double q_active[], const double qdot_active[],
 		                   vec3 & pos_left, vec3 & pos_right, vec3 & vel_left, vec3 & vel_right) {
 
 	static double link[NLINK+1][3+1];
@@ -111,6 +112,47 @@ void calc_cart_pos_and_vel(const ivec & active_dofs, const double q_active[], co
 	vel_right = vel(span(6,8));
 }
 
+/**
+ * @brief Returns the cartesian positions and velocities of LEFT HAND and RIGHT HAND
+ * as a structure.
+ *
+ * Overloaded function that wraps inputs and outputs in structures
+ */
+void calc_cart_pos_and_vel(const uvec & active_dofs, const joint & qdes, robot_hands & hands) {
+
+	static double link[NLINK+1][3+1];
+	static double origin[NDOF+1][3+1];
+	static double axis[NDOF+1][3+1];
+	static double amats[NDOF+1][4+1][4+1];
+	static vec q_default = zeros<vec>(NDOF);
+	static bool firsttime = true;
+	thread_local vec q = zeros<vec>(NDOF);
+	thread_local mat jac = zeros<mat>(2*NENDEFF*NCART,NDOF);
+	thread_local vec qdot = zeros<vec>(NDOF);
+
+	if (firsttime) {
+		read_default_state(q_default);
+		firsttime = false;
+	}
+
+	q = q_default;
+	qdot = zeros<vec>(NDOF);
+	q.elem(active_dofs) = qdes.q;
+	qdot.elem(active_dofs) = qdes.qd;
+
+	kinematics(q.memptr(),link,origin,axis,amats);
+
+	for (int i = 0; i < NCART; i++) {
+		hands.right_pos(i) = link[R_HAND][i+1];
+		hands.left_pos(i) = link[L_HAND][i+1];
+	}
+
+	jacobian(link,origin,axis,jac);
+	vec vel = jac * qdot;
+	hands.left_vel = vel(span(0,2));
+	hands.right_vel = vel(span(6,8));
+}
+
 /*
  *
  * Kinematics from SL
@@ -124,8 +166,8 @@ static void kinematics(const double state[NDOF],
 		        double Ahmat[NDOF+1][5][5]) {
 
 	static bool firsttime = true;
-	static double basec[3+1] = {0.0}; //{-0.000272,-0.033644,-0.007973};
-	static double baseo[4+1] = {0.0}; //{0.999484,0.032108,-0.000179,-0.000008}; // quaternion
+	static double basec[3+1] = {0.0,-0.000272,-0.033644,-0.007973};
+	static double baseo[4+1] = {0.0,0.999484,0.032108,-0.000179,-0.000008}; // quaternion
 	static double eff_a[NENDEFF+1][NCART+1];
 	static double eff_x[NENDEFF+1][NCART+1];
 
@@ -138,7 +180,7 @@ static void kinematics(const double state[NDOF],
 		eff_a[LEFT_HAND+1][3]   = -PI/2.0;
 		eff_x[RIGHT_HAND+1][1]  = XHAND;
 		eff_x[LEFT_HAND+1][1]   = XHAND;
-		baseo[1] = 1.0;
+		//baseo[1] = 1.0;
 	}
 
 	static double  sstate29th;

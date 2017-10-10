@@ -46,7 +46,7 @@ $(OBJDIR)/sl_basketball_interface.o : $(DIR)/src/sl_basketball_interface.cpp $(H
 $(OBJDIR)/optim.o : $(DIR)/src/optim.cpp $(HEADER)/kinematics.h $(HEADER)/optim.h $(HEADER)/utils.h $(HEADER)/constants.h
 	$(CC) -c -fPIC $(FLAGS) -o $@ $<
 	
-$(OBJDIR)/kinematics.o : $(DIR)/src/kinematics.cpp $(HEADER)/kinematics.h $(HEADER)/constants.h
+$(OBJDIR)/kinematics.o : $(DIR)/src/kinematics.cpp $(HEADER)/kinematics.h $(HEADER)/constants.h $(HEADER)/optim.h
 	$(CC) -c -fPIC $(FLAGS) -o $@ $<
 	
 $(OBJDIR)/utils.o : $(DIR)/src/utils.c $(HEADER)/utils.h

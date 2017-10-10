@@ -15,14 +15,16 @@ static const bool CHECK_CONTACTS = true; // turn off for simplified debugging
 /**
  * @brief Cartesian state of robot hands (LEFT and RIGHT)
  */
-struct robot_state_hands {
+struct robot_hands {
 
 	vec3 left_pos = zeros<vec>(NCART);
 	vec3 right_pos = zeros<vec>(NCART);
 	vec3 left_vel = zeros<vec>(NCART);
 	vec3 right_vel = zeros<vec>(NCART);
 
-	robot_state_hands(const double lpos[], const double rpos[],
+	robot_hands() {};
+
+	robot_hands(const double lpos[], const double rpos[],
 			          const double lvel[], const double rvel[], const int START_IDX) {
 		for (int i = 0; i < NCART; i++) {
 			left_pos(i) = lpos[i+START_IDX];
@@ -30,6 +32,13 @@ struct robot_state_hands {
 			left_vel(i) = lvel[i+START_IDX];
 			right_vel(i) = rvel[i+START_IDX];
 		}
+	}
+
+	robot_hands(const vec3 & lpos, const vec3 & rpos, const vec3 & lvel, const vec3 & rvel) {
+		left_pos = lpos;
+		right_pos = rpos;
+		left_vel = lvel;
+		right_vel = rvel;
 	}
 };
 
@@ -63,7 +72,7 @@ public:
 	Ball();
 	void load_params(const std::string & file_name_relative);
 	void integrate_ball_state(double dt);
-	void integrate_ball_state(const robot_state_hands & robot, double dt);
+	void integrate_ball_state(const robot_hands & robot, double dt);
 	vec6 get_state() const;
 	void get_state(double ball_state[]) const;
 	void set_state(const vec6 & ball_state);

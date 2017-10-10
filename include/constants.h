@@ -139,10 +139,10 @@ enum RobotEndeffectors {
 	N_MAX_ENDEFFECTORS
 };
 
-const ivec RIGHT_ARM = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
-const ivec LEFT_ARM = {L_SFE, L_SAA, L_HR, L_EB, L_WR, L_WFE, L_WAA};
-const ivec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
-const ivec link2endeffmap = {L_HAND,R_HAND,L_FOOT,R_FOOT};
+const uvec RIGHT_ARM = {R_SFE, R_SAA, R_HR, R_EB, R_WR, R_WFE, R_WAA};
+const uvec LEFT_ARM = {L_SFE, L_SAA, L_HR, L_EB, L_WR, L_WFE, L_WAA};
+const uvec active_dofs = join_vert(LEFT_ARM,RIGHT_ARM);
+const uvec link2endeffmap = {L_HAND,R_HAND,L_FOOT,R_FOOT};
 
 const int NCART = 3;
 const int NQUAT = 4;
