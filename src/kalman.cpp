@@ -378,7 +378,14 @@ void KF::update(const vec & y) {
 	// innovation covariance
 	mat Theta = C * P * C.t() + R;
 	// optimal Kalman gain
-	mat K = P * C.t() * inv(Theta);
+	mat K = zeros<mat>(x.n_elem,y.n_elem);
+	try {
+		K = P * C.t() * inv(Theta);
+	}
+	catch (std::runtime_error & e) {
+		cerr << "Theta (innovation covariance) inversion not possible!" << endl;
+		cout << Theta;
+	}
 
 	// update state mean and covariance
 	P = P - K * C * P;
@@ -394,10 +401,6 @@ void KF::update(const vec & y) {
  * @return Sampled future observations.
  */
 mat KF::sample_observations(int N) const {
-
-	// disable messages being printed to the err2 stream
-	std::ostream nullstream(0);
-	set_stream_err2(nullstream);
 
 	int dimy = C.n_rows;
 	int dimx = x.n_elem;

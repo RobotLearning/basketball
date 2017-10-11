@@ -51,9 +51,11 @@ struct ball_params {
 	double radius  = 0.1213; //!< standard basketball radius
 	double gravity = -9.8;
 	double friction = 0.0;
+	double restitution = 0.88; //!< coeff. of restitution between ball and robot
 	double string_len = 1.0;
 	double theta = -PI/4;
 	double theta_dot = 0.0;
+	double threshold = 0.5; //!< threshold (in seconds) to consider contact
 
 	// desired parameters
 	double theta_dot_des = -1.0;

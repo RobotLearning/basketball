@@ -132,9 +132,7 @@ void Player::estimate_ball_state(const vec3 & obs) {
 	else if (init_ball_state) { // comes here if there are enough balls to start filter
 		filter.predict(DT,true); //true);
 		if (newball) {
-			valid_obs = true;
-			if (pflags.outlier_detection)
-				valid_obs = !filter.check_outlier(obs,verb > 2);
+			valid_obs = !filter.check_outlier(obs,verb > 2);
 		}
 		if (valid_obs) {
 			filter.update(obs);
@@ -215,9 +213,9 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 	calc_next_state(qact, qdes);
 }
 
-/*
+/**
  *
- * Calculate the optimization parameters using an NLOPT nonlinear optimization algorithm
+ * @brief Calculate the optimization parameters using an NLOPT nonlinear optimization algorithm
  * in another thread
  *
  * The optimized parameters are: qf, qf_dot, T
@@ -251,56 +249,20 @@ void Player::optim_param(const joint & qact) {
 	}
 }
 
-/*
- * Check MPC flag and update if possible
- *
- * IF MPC IS TURNED OFF
- * if ball is incoming and robot is not moving consider optimization
- *
- * IF MPC IS TURNED ON
- * then additionally consider (after running initial optimization)
- * relaunching optimization if ball is valid (new ball and not an outlier)
- * the frequency of updates is respected, and the ball has not passed the y-limit
+/**
+ * @brief IF robot is not moving and optimizations are NOT running consider optimization
  *
  */
 bool Player::check_update(const joint & qact) const {
 
-	static bool firsttime = true;
-	static int counter;
-	static vec6 state_last = zeros<vec>(6);
 	static wall_clock timer;
-	vec6 state_est;
 	bool update = false;
 
-	bool activate, passed_lim, incoming, feasible = false;
-
-	if (firsttime) {
-		timer.tic();
-		firsttime = false;
-	}
-
 	try {
-		state_est = filter.get_mean();
-		counter++;
-		feasible = state_est(Y) < pflags.offset;
-		incoming = state_est(Y) > state_last(Y);
 		update = !opt_left->check_update() && !opt_left->check_running() &&
 				 !opt_right->check_update() && !opt_right->check_running();
 		// ball is incoming
-		if (pflags.mpc) {
-			activate = (!pflags.detach) ? counter % 5 == 0 :
-					                        timer.toc() > (1.0/pflags.freq_mpc);
-			update = update && valid_obs && activate && incoming;
-		}
-		else {
-			update = update && (poly_left.t == 0.0) && (poly_right.t == 0); // only once
-		}
-		state_last = state_est;
-		if (update) {
-			//cout << "Consider reacting to ball: " << state_est.t() << endl;
-			//cout << num_updates++ << endl;
-			timer.tic();
-		}
+		update = update && (poly_left.t == 0.0) && (poly_right.t == 0); // only once
 	}
 	catch (const std::exception & not_init_error) {
 		update = false;

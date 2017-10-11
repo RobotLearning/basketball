@@ -150,8 +150,6 @@ BOOST_DATA_TEST_CASE(test_optim, data::xrange(2) * data::xrange(2), touch, hand)
 	cout << "\nTesting the optimization for " << touch_str[touch]
 		 << " with " << hand_str[hand] << endl;
 	int N = 1000;
-	arma_rng::set_seed(1);
-	//arma_rng::set_seed_random();
 	vec q0 = zeros<vec>(NDOF_OPT);
 	joint qact;
 	spline_params poly;
@@ -184,8 +182,6 @@ BOOST_AUTO_TEST_CASE(test_player) {
 
 	BOOST_TEST_MESSAGE("\nTesting the player for HITTING with BOTH HANDS");
 
-	arma_rng::set_seed_random();
-	//arma_rng::set_seed(5);
 	const double basketball_radius = 0.1213;
 	int N = 1000;
 	joint qact;
@@ -198,7 +194,7 @@ BOOST_AUTO_TEST_CASE(test_player) {
 	qact.q = qdes.q;
 	EKF filter = init_filter();
 	player_flags flags;
-	flags.detach = false;
+	flags.detach = true;
 	flags.verbosity = 3;
 	flags.optim_type = BOTH_HAND_OPT;
 	flags.touch = true;

@@ -502,7 +502,7 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 	else {
 		diff_norm = norm(pos_left - ball_pos);
 		// change velocities
-		ball_vel = -ball_vel + 2*vel_left;
+		ball_vel = -opt->ballparams.restitution * ball_vel + (1 + opt->ballparams.restitution)*vel_left;
 		// change string angle velocity
 		opt->ballparams.theta_dot = -ball_vel(Y) / ((opt->ballparams.string_len + opt->ballparams.radius)
 				                    * cos(opt->ballparams.theta));

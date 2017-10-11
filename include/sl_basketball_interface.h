@@ -27,6 +27,8 @@ extern void load_options();
 // internal c++ functions
 static void fuse_blobs(const blob_state * blobs, vec3 & obs);
 static void set_optim_type(const int opt_num);
+static void save_joint_data(const SL_Jstate joint_state[NDOF+1],
+		                    const SL_DJstate joint_des_state[NDOF+1]);
 
 #endif
 

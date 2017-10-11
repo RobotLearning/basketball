@@ -27,19 +27,15 @@ enum alg { //type of algorithm
  */
 struct player_flags {
 	bool detach = false; //!< detach optimizations in another thread
-	bool outlier_detection = false; //!< outlier detection for real robot
-	bool mpc = false; //!< turn on/off corrections
 	bool reset = true; //!< reinitializing player class
 	bool save = false; //!< saving ball/robot data
 	bool touch = true; //!< touch if true or hit the ball with a desired velocity if false
 	int verbosity = 0; //!< OFF, LOW, HIGH, ALL
-	int freq_mpc = 1; //!< frequency of mpc updates if turned on
 	int min_obs = 5; //!< number of observations to initialize filter
 	double time2return = 0.5; //!< time to return to starting posture after hit
 	double var_noise = 0.001; //!< variance of noise process (R)
 	double var_model = 0.001; //!< variance of process noise (Q)
 	double t_reset_thresh = 0.3; //!< resetting Kalman filter after this many seconds pass without getting valid obs.
-	double offset = 1.0; //!< y-offset location after which we start optim
 	alg optim_type = RIGHT_HAND_OPT;
 };
 

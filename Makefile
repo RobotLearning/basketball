@@ -40,10 +40,10 @@ $(OBJDIR)/extkalman.o : $(DIR)/src/extkalman.cpp $(HEADER)/kalman.h
 	$(CC) -c -fPIC $(FLAGS) -o $@ $<
 	
 $(OBJDIR)/sl_basketball_interface.o : $(DIR)/src/sl_basketball_interface.cpp $(HEADER)/kalman.h $(HEADER)/optim.h $(HEADER)/kinematics.h \
-							$(HEADER)/constants.h $(HEADER)/sl_basketball_interface.h
+							$(HEADER)/constants.h $(HEADER)/sl_basketball_interface.h $(HEADER)/ball.h
 	$(CC) -c -fPIC $(FLAGS) -o $@ $<
 	
-$(OBJDIR)/optim.o : $(DIR)/src/optim.cpp $(HEADER)/kinematics.h $(HEADER)/optim.h $(HEADER)/utils.h $(HEADER)/constants.h
+$(OBJDIR)/optim.o : $(DIR)/src/optim.cpp $(HEADER)/kinematics.h $(HEADER)/optim.h $(HEADER)/utils.h $(HEADER)/constants.h $(HEADER)/ball.h
 	$(CC) -c -fPIC $(FLAGS) -o $@ $<
 	
 $(OBJDIR)/kinematics.o : $(DIR)/src/kinematics.cpp $(HEADER)/kinematics.h $(HEADER)/constants.h $(HEADER)/optim.h

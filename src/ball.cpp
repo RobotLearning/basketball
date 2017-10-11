@@ -45,8 +45,12 @@ void Ball::load_params(const std::string & file_name_relative) {
 					"RADIUS OF BALL")
 			//("gravity", po::value<double>(&param.gravity)->default_value(-9.80),
 			//		"GRAVITY")
+			("threshold", po::value<double>(&param.threshold)->default_value(0.5),
+					"THRESHOLD TO CONSIDER CONTACT")
 			("friction", po::value<double>(&param.friction)->default_value(0.0),
 					"FRICTION OF PENDULUM STRING")
+			("restitution", po::value<double>(&param.restitution)->default_value(0.88),
+										"RESTITUTION BETWEEN BALL AND ROBOT")
 			("string_length", po::value<double>(&param.string_len)->default_value(1.0),
 					"LENGTH OF PENDULUM STRING")
 			("base_pendulum", po::value<vector<double>>(&param.base_pendulum)->multitoken(),
@@ -216,13 +220,22 @@ void calc_ball_from_angle(const ball_params & param, vec3 & ball_pos, vec3 & bal
 void check_for_contact(const vec3 & robot_pos, const vec3 & robot_vel, const vec3 & ball_pos, const bool verbose,
 					   ball_params & param, vec3 & ball_vel) {
 
-	if (norm(robot_pos - ball_pos) <= param.radius) { // contact occurs
+	static wall_clock timer;
+	static bool firsttime = true;
+
+	if (firsttime) {
+		firsttime = false;
+		timer.tic();
+	}
+
+	if (norm(robot_pos - ball_pos) <= param.radius && timer.toc() > param.threshold) { // contact occurs
 		if (verbose)
-			cout << "Contact between ball and robot!\n";
+			cout << "CONTACT between ball and robot!\n";
 		// change velocities
-		ball_vel = -ball_vel + 2*robot_vel;
+		ball_vel = -param.restitution * ball_vel + (1 + param.restitution)*robot_vel;
 		// change string angle velocity
 		param.theta_dot = -ball_vel(Y) / ((param.string_len + param.radius) * cos(param.theta));
+		timer.tic();
 	}
 }
 

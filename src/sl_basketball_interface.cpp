@@ -108,23 +108,16 @@ void load_options() {
 		// allowed in config file
 		po::options_description config("Configuration");
 		config.add_options()
-		    ("outlier_detection", po::value<bool>(&options.outlier_detection)->default_value(true),
-			      "OUTLIER DETECTION FOR REAL ROBOT!")
 			("hand", po::value<int>(&optim_type)->default_value(0),
 				  "optimization type: LEFT_HAND = 0, RIGHT_HAND = 1, BOTH = 2")
 			("touch", po::value<bool>(&options.touch)->default_value(true),
 				  "only touch the ball if TRUE, hit the ball with des. velocity if FALSE")
-			("mpc", po::value<bool>(&options.mpc)->default_value(false),
-				 "corrections (MPC)")
 			("verbose", po::value<int>(&options.verbosity)->default_value(1),
 		         "verbosity level")
 		    ("save_data", po::value<bool>(&options.save)->default_value(false),
 		         "saving robot/ball data")
-			("start_optim_offset", po::value<double>(&options.offset),
-				 "start optim offset in y-direction")
 			("time2return", po::value<double>(&options.time2return),
 						 "time to return to start posture")
-			("freq_mpc", po::value<int>(&options.freq_mpc), "frequency of updates")
 		    ("min_obs", po::value<int>(&options.min_obs), "minimum obs to start filter")
 		    ("var_noise", po::value<double>(&options.var_noise), "std of filter obs noise")
 		    ("var_model", po::value<double>(&options.var_model), "std of filter process noise")
@@ -206,6 +199,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		}
 		fuse_blobs(blobs,ball_obs);
 		robot->play(qact,ball_obs,qdes);
+		save_joint_data(joint_state,joint_des_state);
 	}
 
 	// update desired joint state
@@ -266,6 +260,53 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 		joint_des_state[active_dofs(i)+1].th = qdes.q(i);
 		joint_des_state[active_dofs(i)+1].thd = qdes.qd(i);
 		joint_des_state[active_dofs(i)+1].thdd = qdes.qdd(i);
+	}
+}
+
+/**
+ * @brief Saves actual/desired joint data if save flag is set to TRUE
+ *
+ * If trajectory is being tracked
+ * saves the time elapsed (sec), joint actual pos, vel, and
+ * joint des pos, vel.
+ *
+ * Only appends during the robot operation. Otherwise will discard ilc.
+ *
+ */
+static void save_joint_data(const SL_Jstate joint_state[NDOF+1],
+		                    const SL_DJstate joint_des_state[NDOF+1]) {
+
+	static std::ofstream stream;
+	static const std::string home = std::getenv("HOME");
+	static const std::string joint_file = home + "/basketball/joints.txt";
+	static vec joint_act = zeros<vec>(2*NDOF_ACTIVE);
+	static vec joint_des = zeros<vec>(2*NDOF_ACTIVE);
+	static bool firsttime = true;
+
+	if (firsttime) {
+		stream.open(joint_file,std::ofstream::out);
+		firsttime = false;
+	}
+
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		joint_act(i) = joint_state[active_dofs(i)+1].th;
+		joint_act(i+NDOF_ACTIVE) = joint_state[active_dofs(i)+1].thd;
+		joint_des(i) = joint_des_state[active_dofs(i)+1].th;
+		joint_des(i+NDOF_ACTIVE) = joint_des_state[active_dofs(i)+1].thd;
+	}
+
+	if (options.save && norm(joint_des.tail(NDOF_ACTIVE)) > 0.0) {
+		if (stream.is_open()) {
+			stream << join_vert(joint_des,joint_act).t();
+		}
+		else {
+			//cout << "OPENING STREAM!\n";
+			stream.open(joint_file,std::ofstream::out | std::ofstream::app);
+			stream << join_vert(joint_des,joint_act).t();
+ 		}
+	}
+	else {
+		stream.close();
 	}
 }
 
