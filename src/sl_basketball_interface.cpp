@@ -278,7 +278,7 @@ static void save_joint_data(const SL_Jstate joint_state[NDOF+1],
 
 	static std::ofstream stream;
 	static const std::string home = std::getenv("HOME");
-	static const std::string joint_file = home + "/basketball/joints.txt";
+	static const std::string joint_file = home + "/basketball/data/joints.txt";
 	static vec joint_act = zeros<vec>(2*NDOF_ACTIVE);
 	static vec joint_des = zeros<vec>(2*NDOF_ACTIVE);
 	static bool firsttime = true;
@@ -295,7 +295,7 @@ static void save_joint_data(const SL_Jstate joint_state[NDOF+1],
 		joint_des(i+NDOF_ACTIVE) = joint_des_state[active_dofs(i)+1].thd;
 	}
 
-	if (options.save && norm(joint_des.tail(NDOF_ACTIVE)) > 0.0) {
+	if (options.save && norm(joint_act.tail(NDOF_ACTIVE)) > 0.0) {
 		if (stream.is_open()) {
 			stream << join_vert(joint_des,joint_act).t();
 		}
