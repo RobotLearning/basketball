@@ -64,6 +64,7 @@ static int update_ball_obs(void) {
 		}
 	}
 	else {
+		// TODO: Is it blobs[1] that gets the visual ball info?
 		ball_obs.status = blobs[1].status;
 		for (i = 0; i < 3; i++) {
 			ball_obs.pos[i] = blobs[1].blob.x[i+1];
@@ -134,7 +135,7 @@ static int run_basketball_task(void) {
 
 	check_range(joint_des_state); // Check if the trajectory is safe
 	//SL_InverseDynamics(NULL, joint_des_state, endeff); // Feedforward control
-	//SL_InverseDynamics(joint_state, joint_des_state, endeff);
+	SL_InverseDynamics(joint_state, joint_des_state, endeff);
 
 	return TRUE;
 }
