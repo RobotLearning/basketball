@@ -40,6 +40,10 @@ struct robot_hands {
 		left_vel = lvel;
 		right_vel = rvel;
 	}
+
+	vec print() {
+		return join_vert(join_vert(left_pos,right_pos),join_vert(left_vel,right_vel));
+	}
 };
 
 /**

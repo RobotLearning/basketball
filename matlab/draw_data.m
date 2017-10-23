@@ -1,9 +1,9 @@
-%% analyze real robot data
+%% Analyze real robot joint data
 
 % load joints data
 clc; clear; close all;
 
-filename = '~/basketball/joints.txt';
+filename = '~/basketball/data/joints.txt';
 M = dlmread(filename);
 t = 1:size(M,1);
 figure('Name','LEFT ARM');
@@ -28,3 +28,51 @@ for i = 1:7
     subplot(7,2,(i-1)*2 + 2);
     plot(t,qd_des(:,i),'r',t,qd_act(:,i),'b');    
 end
+
+%% Draw the cartesian desired and actual positions
+cart_filename = '~/basketball/data/cartesian.txt';
+C = dlmread(cart_filename);
+figure('Name','Cartesian positions');
+downsample = 5;
+vec = 1:5:size(C,1);
+left_des_pos = C(vec,1:3);
+right_des_pos = C(vec,4:6);
+left_act_pos = C(vec,13:15);
+right_act_pos = C(vec,16:18);
+hold on;
+grid on;
+axis equal;
+xlabel('x'); ylabel('y'); zlabel('z');
+scatter3(left_des_pos(:,1),left_des_pos(:,2),left_des_pos(:,3),'r');
+scatter3(left_act_pos(:,1),left_act_pos(:,2),left_act_pos(:,3),'k');
+scatter3(right_des_pos(:,1),right_des_pos(:,2),right_des_pos(:,3),'r');
+scatter3(right_act_pos(:,1),right_act_pos(:,2),right_act_pos(:,3),'b');
+
+%% Draw the ball and initial robot loc
+string_len = 1.0;
+ball_loc = [0.0, 0.3, 1.5-string_len];
+basketball_color = [207,83,0]/256;
+ball_radius = 0.1213;
+numPoints = 100;
+[ballMeshX,ballMeshY,ballMeshZ] = sphere(numPoints);
+ballSurfX = ball_loc(1) + ball_radius * ballMeshX;
+ballSurfY = ball_loc(2) + ball_radius * ballMeshY;
+ballSurfZ = ball_loc(3) + ball_radius * ballMeshZ;
+h = surf(ballSurfX,ballSurfY,ballSurfZ);
+set(h,'FaceColor',basketball_color,'FaceAlpha',0.2,'EdgeAlpha',0.05);
+
+robot_left_init = left_act_pos(1,:);
+robot_right_init = right_act_pos(1,:);
+numPoints = 10;
+[robotInitMeshX,robotInitMeshY,robotInitMeshZ] = sphere(numPoints);
+robotInitSurfX = robot_left_init(1) + 0.02 * robotInitMeshX;
+robotInitSurfY = robot_left_init(2) + 0.02 * robotInitMeshY;
+robotInitSurfZ = robot_left_init(3) + 0.02 * robotInitMeshZ;
+h = surf(robotInitSurfX,robotInitSurfY,robotInitSurfZ);
+robotInitSurfX = robot_right_init(1) + 0.02 * robotInitMeshX;
+robotInitSurfY = robot_right_init(2) + 0.02 * robotInitMeshY;
+robotInitSurfZ = robot_right_init(3) + 0.02 * robotInitMeshZ;
+h = surf(robotInitSurfX,robotInitSurfY,robotInitSurfZ);
+
+legend('left des', 'left act', 'right des', 'right act', ...
+       'ball', 'left init pos', 'right init pos');

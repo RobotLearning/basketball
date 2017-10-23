@@ -200,6 +200,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		fuse_blobs(blobs,ball_obs);
 		robot->play(qact,ball_obs,qdes);
 		save_joint_data(joint_state,joint_des_state);
+		save_cartesian_data(joint_state,joint_des_state);
 	}
 
 	// update desired joint state
@@ -266,11 +267,8 @@ void cheat(const SL_Jstate joint_state[NDOF+1],
 /**
  * @brief Saves actual/desired joint data if save flag is set to TRUE
  *
- * If trajectory is being tracked
- * saves the time elapsed (sec), joint actual pos, vel, and
- * joint des pos, vel.
- *
- * Only appends during the robot operation. Otherwise will discard ilc.
+ * Saves the joint actual pos, vel, and joint des pos, vel.
+ * Only saves if the actual joint velocities are above zero.
  *
  */
 static void save_joint_data(const SL_Jstate joint_state[NDOF+1],
@@ -296,14 +294,59 @@ static void save_joint_data(const SL_Jstate joint_state[NDOF+1],
 	}
 
 	if (options.save && norm(joint_act.tail(NDOF_ACTIVE)) > 0.0) {
-		if (stream.is_open()) {
-			stream << join_vert(joint_des,joint_act).t();
-		}
-		else {
-			//cout << "OPENING STREAM!\n";
+		if (!stream.is_open()) {
 			stream.open(joint_file,std::ofstream::out | std::ofstream::app);
-			stream << join_vert(joint_des,joint_act).t();
- 		}
+		}
+		stream << join_vert(joint_des,joint_act).t();
+	}
+	else {
+		stream.close();
+	}
+}
+
+/**
+ * @brief Saves actual/desired Cartesian data if save flag is set to TRUE
+ *
+ * If trajectory is being tracked
+ * saves Cartesian actual pos, vel, and desired pos, vel. of both arms.
+ *
+ * Only saves if the Cartesian joint velocities are above zero.
+ *
+ */
+static void save_cartesian_data(const SL_Jstate joint_state[NDOF+1],
+		                    const SL_DJstate joint_des_state[NDOF+1]) {
+
+	static std::ofstream stream;
+	static const std::string home = std::getenv("HOME");
+	static const std::string cart_file = home + "/basketball/data/cartesian.txt";
+	static vec cart_act = zeros<vec>(2*2*NCART);
+	static vec cart_des = zeros<vec>(2*2*NCART);
+	static bool firsttime = true;
+	static robot_hands hands;
+	static joint qdes, qact;
+
+	if (firsttime) {
+		stream.open(cart_file,std::ofstream::out);
+		firsttime = false;
+	}
+
+	for (int i = 0; i < active_dofs.n_elem; i++) {
+		qdes.q(i) = joint_des_state[active_dofs(i)+1].th;
+		qdes.qd(i) = joint_des_state[active_dofs(i)+1].thd;
+		qact.q(i) = joint_state[active_dofs(i)+1].th;
+		qact.qd(i) = joint_state[active_dofs(i)+1].thd;
+	}
+
+	calc_cart_pos_and_vel(active_dofs,qdes,hands);
+	cart_des = hands.print();
+	calc_cart_pos_and_vel(active_dofs,qact,hands);
+	cart_act = hands.print();
+
+	if (options.save && norm(cart_act.tail(2*NCART)) > 0.0) {
+		if (!stream.is_open()) {
+			stream.open(cart_file,std::ofstream::out | std::ofstream::app);
+		}
+		stream << join_vert(cart_des,cart_act).t();
 	}
 	else {
 		stream.close();

@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 # load joints data
 dt = 0.002
 # THIS IS FOR SIMULATION 
-file_name = "/home/okan/basketball/data/joints.txt"
+file_name = "/home/bri/okan.koc/basketball/data/joints.txt"
 
 # THIS IS FOR REAL ROBOT
 #file_name = "/home/okan/basketball/data/16.10.2017/joints_real_left.txt"
