@@ -1,11 +1,12 @@
 # analyze real robot data
 import numpy as np
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 # load joints data
 dt = 0.002
 # THIS IS FOR SIMULATION 
-file_name = "/home/bri/okan.koc/basketball/data/joints.txt"
+file_name = "/home/okan/basketball/data/joints.txt"
 
 # THIS IS FOR REAL ROBOT
 #file_name = "/home/okan/basketball/data/16.10.2017/joints_real_left.txt"
@@ -60,5 +61,42 @@ fig2.text(t[np.size(M,0)/2], 5, 'time (sec)', ha='center')
 #legend2.get_frame().set_facecolor('#00FFCC')
 axes2[-1,0].set_xlabel('time (sec)',fontsize='x-large')
 axes2[-1,1].set_xlabel('time (sec)',fontsize='x-large')
+
+# 3d plot for the cartesian positions
+cart_file_name = "/home/okan/basketball/data/cartesian.txt"
+C = np.genfromtxt(cart_file_name)
+down = 1
+vec = np.arange(1,np.size(C,0),down)
+left_des_pos = C[vec,0:3]
+right_des_pos = C[vec,3:6]
+left_act_pos = C[vec,12:15]
+right_act_pos = C[vec,15:18]
+fig3 = plt.figure(figsize=(12,12), dpi=300)
+ax = fig3.add_subplot(111, projection='3d')
+#ax.set_aspect('equal')
+
+# PLOTTING ONLY THE FIRST TRIAL!
+idx = np.where(left_des_pos[:,0] == left_des_pos[0,0])
+print 'First trial length:', idx[0]
+idx1 = np.arange(idx[0][0],idx[0][2]-1,1)
+ax.plot(left_des_pos[idx1,0],left_des_pos[idx1,1],left_des_pos[idx1,2],'r',label='desired')
+ax.plot(left_act_pos[idx1,0],left_act_pos[idx1,1],left_act_pos[idx1,2],'k',label='observed')
+ax.plot(right_des_pos[idx1,0],right_des_pos[idx1,1],right_des_pos[idx1,2],'r',label='desired')
+ax.plot(right_act_pos[idx1,0],right_act_pos[idx1,1],right_act_pos[idx1,2],'b',label='observed')
+ax.scatter(left_des_pos[0,0],left_des_pos[0,1], left_des_pos[0,2],s=50,c='r')
+ax.scatter(right_des_pos[0,0],right_des_pos[0,1], right_des_pos[0,2],s=50,c='r')
+
+# Draw the ball and initial robot loc
+string_len = 1.0
+ball_loc = [0.0, 0.3, 1.5-string_len]
+basketball_color = np.array([207,83,0])/256
+ball_radius = 0.1213
+
+u = np.linspace(0, 2 * np.pi, 100)
+v = np.linspace(0, np.pi, 100)
+x = ball_loc[0] + ball_radius * np.outer(np.cos(u), np.sin(v))
+y = ball_loc[1] + ball_radius * np.outer(np.sin(u), np.sin(v))
+z = ball_loc[2] + ball_radius * np.outer(np.ones(np.size(u)), np.cos(v))
+#ax.plot_surface(x, y, z,  rstride=5, cstride=5, color='r', linewidth=1, shade = 0, alpha=0.5)
 
 plt.show()

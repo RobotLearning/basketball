@@ -79,14 +79,11 @@ BOOST_AUTO_TEST_CASE(test_kinematics) {
 								 0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
 	vec3 pos_left;
 	vec3 pos_right;
-	vec3 pos_des_left = {-0.274,0.33,0.213};
-	vec3 pos_des_right = {0.274,0.33,0.213};
-    //RIGHT HAND = [0.273850,0.329690,0.213394]
-	//LEFT HAND = [-0.274531,0.329705,0.213198]
-
+	vec3 pos_des_left = {-0.274191,0.376646,0.197571}; //{-0.274,0.33,0.213};
+	vec3 pos_des_right = {0.274191,0.376646,0.197571}; //{0.274,0.33,0.213};
 	calc_cart_pos(active_dofs,q_active,pos_left,pos_right);
-	//cout << endl << "POS_DES_LEFT: " << pos_des_left.t() << " vs. POS_LEFT:" << pos_left.t();
-	//cout << endl << "POS_DES_RIGHT: " << pos_des_right.t() << " vs. POS_RIGHT:" << pos_right.t();
+	cout << endl << "POS_DES_LEFT: " << pos_des_left.t() << " vs. POS_LEFT:" << pos_left.t();
+	cout << endl << "POS_DES_RIGHT: " << pos_des_right.t() << " vs. POS_RIGHT:" << pos_right.t();
 	BOOST_TEST(approx_equal(pos_left,pos_des_left,"absdiff", 0.002)); //boost::test_tools::tolerance(0.01)
 	BOOST_TEST(approx_equal(pos_right,pos_des_right,"absdiff", 0.002)); //boost::test_tools::tolerance(0.01)
 }

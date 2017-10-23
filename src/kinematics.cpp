@@ -166,8 +166,8 @@ static void kinematics(const double state[NDOF],
 		        double Ahmat[NDOF+1][5][5]) {
 
 	static bool firsttime = true;
-	static double basec[3+1] = {0.0,-0.000272,-0.033644,-0.007973};
-	static double baseo[4+1] = {0.0,0.999484,0.032108,-0.000179,-0.000008}; // quaternion
+	static double basec[3+1] = {0.0}; //{0.0,-0.000272,-0.033644,-0.007973};
+	static double baseo[4+1] = {0.0, -1.0, 0.0, 0.0, 0.0}; //{0.0,0.999484,0.032108,-0.000179,-0.000008}; // quaternion
 	static double eff_a[NENDEFF+1][NCART+1];
 	static double eff_x[NENDEFF+1][NCART+1];
 
