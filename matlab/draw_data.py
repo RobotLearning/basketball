@@ -99,4 +99,7 @@ y = ball_loc[1] + ball_radius * np.outer(np.sin(u), np.sin(v))
 z = ball_loc[2] + ball_radius * np.outer(np.ones(np.size(u)), np.cos(v))
 #ax.plot_surface(x, y, z,  rstride=5, cstride=5, color='r', linewidth=1, shade = 0, alpha=0.5)
 
+fig1.savefig('/home/okan/basketball/data/23.10.2017/left_arm.png')   # save the figure to file
+fig2.savefig('/home/okan/basketball/data/23.10.2017/right_arm.png')   # save the figure to file
+fig3.savefig('/home/okan/basketball/data/23.10.2017/cart_pos.png')   # save the figure to file
 plt.show()
