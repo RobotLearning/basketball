@@ -18,6 +18,7 @@ extern void play(const SL_Jstate joint_state[], const blob_state *blobs, SL_DJst
 extern void cheat(const SL_Jstate joint_state[], const SL_Cstate *sim_ball_state, SL_DJstate joint_des_state[]);
 extern void integrate_ball_state(const double dt, const SL_Cstate robot_state[], double ball_state[], double env_vars[]);
 extern void load_options();
+extern void update_base(const SL_Cstate *basec, const SL_quat *baseo);
 
 #ifdef __cplusplus
 } // extern "C"

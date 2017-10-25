@@ -26,7 +26,8 @@ using namespace arma;
 
 // internal functions used in calculating cartesian quantities
 static void kinematics(const vec3 & basec,
-		const vec4 & baseo, const double state[NDOF],
+		               const vec4 & baseo,
+					   const double state[NDOF],
 		        	   double Xlink[NLINK+1][4],
 					   double Xorigin[NDOF+1][4],
 					   double Xaxis[NDOF+1][4],
@@ -184,7 +185,7 @@ static void kinematics(const vec3 & basec,
 		eff_a[LEFT_HAND][3]   = -PI/2.0;
 		eff_x[RIGHT_HAND][1]  = XHAND;
 		eff_x[LEFT_HAND][1]   = XHAND;
-		//baseo[1] = 1.0;
+		//baseo(X) = 1.0;
 	}
 
 	static double  sstate29th;
@@ -562,18 +563,18 @@ static void kinematics(const vec3 & basec,
 
 	/* inverse homogeneous rotation matrices */
 	Hi00[1][1]=-1 + 2*Power(baseo(X),2) + 2*Power(baseo(Y),2);
-	Hi00[1][2]=2*(baseo(Y)*baseo(Z) - baseo[1]*baseo(W));
-	Hi00[1][3]=2*(baseo[1]*baseo(Z) + baseo(Y)*baseo(W));
+	Hi00[1][2]=2*(baseo(Y)*baseo(Z) - baseo(X)*baseo(W));
+	Hi00[1][3]=2*(baseo(X)*baseo(Z) + baseo(Y)*baseo(W));
 	Hi00[1][4]=basec(X);
 
-	Hi00[2][1]=2*(baseo(Y)*baseo(Z) + baseo[1]*baseo(W));
-	Hi00[2][2]=-1 + 2*Power(baseo[1],2) + 2*Power(baseo(Z),2);
-	Hi00[2][3]=2*(-(baseo[1]*baseo(Y)) + baseo(Z)*baseo(W));
+	Hi00[2][1]=2*(baseo(Y)*baseo(Z) + baseo(X)*baseo(W));
+	Hi00[2][2]=-1 + 2*Power(baseo(X),2) + 2*Power(baseo(Z),2);
+	Hi00[2][3]=2*(-(baseo(X)*baseo(Y)) + baseo(Z)*baseo(W));
 	Hi00[2][4]=basec(Y);
 
-	Hi00[3][1]=2*(-(baseo[1]*baseo(Z)) + baseo(Y)*baseo(W));
-	Hi00[3][2]=2*(baseo[1]*baseo(Y) + baseo(Z)*baseo(W));
-	Hi00[3][3]=-1 + 2*Power(baseo[1],2) + 2*Power(baseo(W),2);
+	Hi00[3][1]=2*(-(baseo(X)*baseo(Z)) + baseo(Y)*baseo(W));
+	Hi00[3][2]=2*(baseo(X)*baseo(Y) + baseo(Z)*baseo(W));
+	Hi00[3][3]=-1 + 2*Power(baseo(X),2) + 2*Power(baseo(W),2);
 	Hi00[3][4]=basec(Z);
 
 
