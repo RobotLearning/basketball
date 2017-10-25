@@ -65,8 +65,8 @@ axes2[-1,1].set_xlabel('time (sec)',fontsize='x-large')
 # 3d plot for the cartesian positions
 cart_file_name = "/home/okan/basketball/data/cartesian.txt"
 C = np.genfromtxt(cart_file_name)
-down = 1
-vec = np.arange(1,np.size(C,0),down)
+down = 5
+vec = np.arange(0,np.size(C,0),down)
 left_des_pos = C[vec,0:3]
 right_des_pos = C[vec,3:6]
 left_act_pos = C[vec,12:15]
@@ -76,9 +76,10 @@ ax = fig3.add_subplot(111, projection='3d')
 #ax.set_aspect('equal')
 
 # PLOTTING ONLY THE FIRST TRIAL!
-idx = np.where(left_des_pos[:,0] == left_des_pos[0,0])
-print 'First trial length:', idx[0]
-idx1 = np.arange(idx[0][0],idx[0][2]-1,1)
+#idx = np.where(left_des_pos[:,0] == left_des_pos[0,0])
+#print 'First trial length:', idx[0]
+#idx1 = np.arange(idx[0][0],idx[0][2]-1,1)
+idx1 = np.arange(0,np.size(vec,0),1)
 ax.plot(left_des_pos[idx1,0],left_des_pos[idx1,1],left_des_pos[idx1,2],'r',label='desired')
 ax.plot(left_act_pos[idx1,0],left_act_pos[idx1,1],left_act_pos[idx1,2],'k',label='observed')
 ax.plot(right_des_pos[idx1,0],right_des_pos[idx1,1],right_des_pos[idx1,2],'r',label='desired')
