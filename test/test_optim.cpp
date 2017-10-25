@@ -75,13 +75,15 @@ BOOST_AUTO_TEST_CASE(test_kinematics) {
 	BOOST_TEST_MESSAGE("Testing kinematics close to default posture...");
 
 	//double q_active[NDOF_OPT] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
+	const vec3 basec = {0.0, 0.0, 0.0};
+	const vec4 baseo = {-1.0, 0.0, 0.0, 0.0};
 	double q_active[NDOF_ACTIVE] = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
 								 0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
 	vec3 pos_left;
 	vec3 pos_right;
 	vec3 pos_des_left = {-0.274191,0.376646,0.197571}; //{-0.274,0.33,0.213};
 	vec3 pos_des_right = {0.274191,0.376646,0.197571}; //{0.274,0.33,0.213};
-	calc_cart_pos(active_dofs,q_active,pos_left,pos_right);
+	calc_cart_pos(basec,baseo,active_dofs,q_active,pos_left,pos_right);
 	cout << endl << "POS_DES_LEFT: " << pos_des_left.t() << " vs. POS_LEFT:" << pos_left.t();
 	cout << endl << "POS_DES_RIGHT: " << pos_des_right.t() << " vs. POS_RIGHT:" << pos_right.t();
 	BOOST_TEST(approx_equal(pos_left,pos_des_left,"absdiff", 0.002)); //boost::test_tools::tolerance(0.01)
@@ -96,6 +98,8 @@ BOOST_AUTO_TEST_CASE(test_jacobian) {
 	BOOST_TEST_MESSAGE("\nComparing exact geometric jacobian to numerical diff. of kinematics ...");
 
 	const double dt = 1e-5;
+	const vec3 basec = {0.0, 0.0, 0.0};
+	const vec4 baseo = {-1.0, 0.0, 0.0, 0.0};
 	//double q_active[NDOF_OPT] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
 	double q_active[NDOF_ACTIVE] = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
 								    0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
@@ -105,7 +109,7 @@ BOOST_AUTO_TEST_CASE(test_jacobian) {
 	vec3 pos_left, pos_right, vel_left, vel_right;
 	vec3 pos_diff_left, pos_diff_right, vel_diff_left, vel_diff_right;
 
-	calc_cart_pos(active_dofs,q_active,pos_left,pos_right);
+	calc_cart_pos(basec, baseo, active_dofs,q_active,pos_left,pos_right);
 
 	for (int i = 0; i < NDOF_ACTIVE; i++) {
 
@@ -118,14 +122,14 @@ BOOST_AUTO_TEST_CASE(test_jacobian) {
 		q_perturb[i] += qdot_active[i] * dt;
 
 		// capture new cart. pos
-		calc_cart_pos(active_dofs,q_perturb,pos_diff_left,pos_diff_right);
+		calc_cart_pos(basec, baseo, active_dofs,q_perturb,pos_diff_left,pos_diff_right);
 
 		// and num. diff. positions
 		vel_diff_left = (pos_diff_left - pos_left) / dt;
 		vel_diff_right = (pos_diff_right - pos_right) / dt;
 
 		// compare with jacobian calculated positions
-		calc_cart_pos_and_vel(active_dofs,q_active,qdot_active,pos_left,pos_right,vel_left,vel_right);
+		calc_cart_pos_and_vel(basec, baseo, active_dofs,q_active,qdot_active,pos_left,pos_right,vel_left,vel_right);
 
 		/*cout << endl;
 		cout << "VEL_LEFT: " << vel_left.t() << " vs. " << vel_diff_left.t();
@@ -158,13 +162,13 @@ BOOST_DATA_TEST_CASE(test_optim, data::xrange(2) * data::xrange(2), touch, hand)
 	mat66 P; P.eye();
 	filter.set_prior(ball_state,P);
 	mat balls_pred = filter.predict_path(DT,N);
-	optim_des params;
+	optim_kin_params params;
 	params.Nmax = 1000;
 	params.ball_pos = balls_pred.rows(X,Z);
 	params.ball_vel = balls_pred.rows(DX,DZ);
 
 	Optim opt = Optim(q0,hand,touch);
-	opt.set_des_params(&params);
+	opt.set_kinematics_params(&params);
 	opt.update_init_state(qact);
 	opt.run();
 	BOOST_TEST(opt.get_params(qact,poly));
@@ -217,7 +221,7 @@ BOOST_DATA_TEST_CASE(test_player, data::xrange(2) * data::xrange(3), touch_idx, 
 
 		// get cartesian state
 		//calc_cart_pos(active_dofs,qdes.q.memptr(),pos_left,pos_right);
-		calc_cart_pos_and_vel(active_dofs, qdes, hands);
+		calc_cart_pos_and_vel(flags.basec, flags.baseo, active_dofs, qdes, hands);
 
 		xdes.col(i) = join_vert(hands.left_pos, hands.right_pos);
 

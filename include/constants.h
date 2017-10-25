@@ -23,7 +23,7 @@ using namespace arma;
 #define X 0
 #define Y 1
 #define Z 2
-#define W 3 //!< for quaternion, not used
+#define W 3 //!< for quaternion
 #define DX 3
 #define DY 4
 #define DZ 5

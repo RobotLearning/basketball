@@ -94,10 +94,13 @@
 using namespace arma;
 
 // kinematics functions from SL
-void calc_cart_pos(const uvec & active_dofs, const double q_active[], vec & pos_left, vec & pos_right);
-void calc_cart_pos_and_vel(const uvec & active_dofs, const double q_active[], const double qdot_active[],
+void calc_cart_pos(const vec3 & basec,
+		const vec4 & baseo, const uvec & active_dofs, const double q_active[], vec & pos_left, vec & pos_right);
+void calc_cart_pos_and_vel(const vec3 & basec,
+		const vec4 & baseo, const uvec & active_dofs, const double q_active[], const double qdot_active[],
 		                   vec3 & pos_left, vec3 & pos_right, vec3 & vel_left, vec3 & vel_right);
-void calc_cart_pos_and_vel(const uvec & active_dofs, const joint & qdes, robot_hands & hands);
+void calc_cart_pos_and_vel(const vec3 & basec,
+		const vec4 & baseo, const uvec & active_dofs, const joint & qdes, robot_hands & hands);
 void read_joint_limits(vec & lb, vec & ub);
 
 #endif /* KINEMATICS_H_ */

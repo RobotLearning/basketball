@@ -36,6 +36,8 @@ struct player_flags {
 	double var_noise = 0.001; //!< variance of noise process (R)
 	double var_model = 0.001; //!< variance of process noise (Q)
 	double t_reset_thresh = 0.3; //!< resetting Kalman filter after this many seconds pass without getting valid obs.
+	vec3 basec = zeros<vec>(NCART);
+	vec4 baseo = {-1.0, 0.0, 0.0, 0.0};
 	alg optim_type = RIGHT_HAND_OPT;
 };
 
@@ -56,8 +58,8 @@ private:
 	double t_obs = 0.0; // counting time stamps for resetting filter
 	bool valid_obs = true; // ball observed is valid (new ball and not an outlier)
 	int num_obs = 0; // number of observations received
-	player_flags pflags;
-	optim_des pred_params;
+	player_flags & pflags;
+	optim_kin_params kinematics_params;
 	mat observations; // for initializing filter
 	mat times; // for initializing filter
 	spline_params poly_left;

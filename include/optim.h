@@ -35,11 +35,10 @@ using namespace arma;
  *
  * This is the structure passed to Optimization class Optim
  * and its descendants.
- * For FP, we compute desired racket positions, velocities and normals
- * based on predicted ball path inside robot workspace.
- * For DP, we only use the ball predicted positions and velocities.
  */
-struct optim_des {
+struct optim_kin_params {
+	vec3 basec = {0.0, 0.0, 0.0};
+	vec4 baseo = {-1.0, 0.0, 0.0, 0.0};
 	mat ball_pos = zeros<mat>(NCART,1); //!< incoming ball predicted pos.
 	mat ball_vel = zeros<mat>(NCART,1); //!< incoming ball predicted vels.
 	double dt = DT; //!< time step between each prediction
@@ -119,7 +118,7 @@ public:
 	double time2return = 0.5; //!< Desired time to return to resting state
 	bool right_arm = true; //!< optimize the right arm if TRUE, left arm if FALSE
 	uvec active_dofs = zeros<uvec>(NDOF_OPT);
-	optim_des *param_des; //!< Desired racket and/or ball predicted vals.
+	optim_kin_params *param_des; //!< Desired racket and/or ball predicted vals.
 	vec lb = zeros<vec>(2*NDOF_OPT+1); //!< Joint lower limits, joint vel. lower limit and min. hitting time
 	vec ub = zeros<vec>(2*NDOF_OPT+1); //!< Joint upper limits, joint vel. upper limit and max. hitting time
 	vec qrest = zeros<vec>(NDOF_OPT); //!< Resting posture for optimizers to compute return traj.
@@ -139,7 +138,7 @@ public:
 	void run_qrest_optim(vec7 & q_rest_des);
 	void update_init_state(const joint & qact);
 	void set_return_time(const double & time);
-	void set_des_params(optim_des *params);
+	void set_kinematics_params(optim_kin_params *params);
 	void run();
 };
 

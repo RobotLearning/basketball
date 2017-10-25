@@ -26,7 +26,7 @@ static void touch_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *f_data);
 static void hit_constr(unsigned m, double *result, unsigned n,
 		                  const double *x, double *grad, void *f_data);
-static void first_order_hold(const optim_des* data, const double T, vec3 & ball_pos, vec3 & ball_vel);
+static void first_order_hold(const optim_kin_params* data, const double T, vec3 & ball_pos, vec3 & ball_vel);
 
 /**
  * @brief Initialize the NLOPT optimization procedure here for FP
@@ -187,12 +187,14 @@ void Optim::update_rest_state(const vec & q_rest_new) {
 }
 
 /**
- * @brief Set desired optimization parameters before running optim.
+ * @brief Set optimization parameters before running optim.
  *
- * @param params_ Desired optimization parameters are racket and/or ball values
+ * @param params_ Optimization parameters are racket and/or ball values
  * predicted or computed by player class.
+ *
+ * Also including base cartesian and orientation parameters
  */
-void Optim::set_des_params(optim_des *params_) {
+void Optim::set_kinematics_params(optim_kin_params *params_) {
 	param_des = params_;
 }
 
@@ -402,7 +404,7 @@ static void touch_constr(unsigned m, double *result, unsigned n,
 	double diff_norm = 0.0;
 
 	Optim *opt = (Optim*) my_function_data;
-	optim_des* data = opt->param_des;
+	optim_kin_params* data = opt->param_des;
 
 	if (grad) {
 		thread_local double h = 1e-6;
@@ -430,7 +432,7 @@ static void touch_constr(unsigned m, double *result, unsigned n,
 	}
 
 	// compute the actual racket pos,vel and normal
-	calc_cart_pos(opt->active_dofs,qf,pos_left,pos_right);
+	calc_cart_pos(data->basec, data->baseo, opt->active_dofs,qf,pos_left,pos_right);
 
 	// deviations from the desired racket frame
 	if (opt->right_arm)
@@ -454,7 +456,7 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 	double diff_norm = 0.0;
 
 	Optim *opt = (Optim*) my_function_data;
-	optim_des* data = opt->param_des;
+	optim_kin_params* data = opt->param_des;
 
 	if (grad) {
 		thread_local double h = 1e-6;
@@ -483,7 +485,7 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 	}
 
 	// compute the actual racket pos,vel and normal
-	calc_cart_pos_and_vel(opt->active_dofs,qf,qfdot,pos_left,pos_right,vel_left,vel_right);
+	calc_cart_pos_and_vel(data->basec, data->baseo, opt->active_dofs, qf,qfdot,pos_left,pos_right,vel_left,vel_right);
 	calc_angle_from_ball(ball_pos,ball_vel,opt->ballparams);
 
 	/*cout << "BALL VEL: " << ball_vel.t();
@@ -522,7 +524,7 @@ static void hit_constr(unsigned m, double *result, unsigned n,
  * relevant ball entries
  *
  */
-static void first_order_hold(const optim_des* data, const double T, vec3 & ball_pos, vec3 & ball_vel) {
+static void first_order_hold(const optim_kin_params* data, const double T, vec3 & ball_pos, vec3 & ball_vel) {
 
 	double deltat = data->dt;
 	if (std::isnan(T)) {

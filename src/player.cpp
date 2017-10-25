@@ -230,18 +230,20 @@ void Player::optim_param(const joint & qact) {
 	// if ball is fast enough and robot is not moving consider optimization
 	if (check_update(qact)) {
 		predict_ball(time_pred,balls_pred,filter);
-		pred_params.Nmax = (int)(time_pred/DT);
-		pred_params.ball_pos = balls_pred.rows(X,Z);
-		pred_params.ball_vel = balls_pred.rows(DX,DZ);
+		kinematics_params.Nmax = (int)(time_pred/DT);
+		kinematics_params.ball_pos = balls_pred.rows(X,Z);
+		kinematics_params.ball_vel = balls_pred.rows(DX,DZ);
+		kinematics_params.basec = pflags.basec;
+		kinematics_params.baseo = pflags.baseo;
 
 		if (pflags.optim_type == LEFT_HAND_OPT || pflags.optim_type == BOTH_HAND_OPT) {
-			opt_left->set_des_params(&pred_params);
+			opt_left->set_kinematics_params(&kinematics_params);
 			opt_left->update_init_state(qact);
 			//opt_left->set_verbose(true);
 			opt_left->run();
 		}
 		if (pflags.optim_type == RIGHT_HAND_OPT || pflags.optim_type == BOTH_HAND_OPT) {
-			opt_right->set_des_params(&pred_params);
+			opt_right->set_kinematics_params(&kinematics_params);
 			opt_right->update_init_state(qact);
 			//opt_right->set_verbose(true);
 			opt_right->run();

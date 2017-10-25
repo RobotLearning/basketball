@@ -48,6 +48,14 @@ struct SL_Cstate {
 	double   xdd[NCART+1];  /*!< Acceleration */
 };
 
+struct SL_quat { /*!< Quaternion orientation */
+  double   q[NQUAT+1];    /*!< Position [q0,q1,q2,q3] */
+  double   qd[NQUAT+1];   /*!< Velocity */
+  double   qdd[NQUAT+1];  /*!< Acceleration */
+  double   ad[NCART+1];   /*!< Angular Velocity [alpha,beta,gamma] */
+  double   add[NCART+1];  /*!< Angular Acceleration */
+};
+
 /**
  * @brief Vision blob info coming from SL (after calibration).
  *
@@ -137,6 +145,20 @@ void load_options() {
     }
     set_optim_type(optim_type);
     options.detach = true; // always detached in SL/REAL ROBOT!
+}
+
+/**
+ * @brief Update base cartesian positions and orientations.
+ *
+ * In simulation, the robot is rocking to and fro, hence to get accurate kinematics
+ * we need to update the base
+ */
+void update_base(const SL_Cstate *basec, const SL_quat *baseo) {
+
+	for (int i = 0; i < NCART; i++)
+		options.basec(i) = basec->x[i+1];
+	for (int i = 0; i < NQUAT; i++)
+		options.baseo(i) = baseo->q[i+1];
 }
 
 /**
@@ -380,9 +402,9 @@ static void save_cartesian_data(const SL_Jstate joint_state[NDOF+1],
 		qact.qd(i) = joint_state[active_dofs(i)+1].thd;
 	}
 
-	calc_cart_pos_and_vel(active_dofs,qdes,hands);
+	calc_cart_pos_and_vel(options.basec, options.baseo, active_dofs,qdes,hands);
 	cart_des = hands.print();
-	calc_cart_pos_and_vel(active_dofs,qact,hands);
+	calc_cart_pos_and_vel(options.basec, options.baseo, active_dofs,qact,hands);
 	cart_act = hands.print();
 
 	if (options.save && norm(cart_act.tail(2*NCART)) > 0.0) {

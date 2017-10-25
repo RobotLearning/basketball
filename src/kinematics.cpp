@@ -25,7 +25,8 @@
 using namespace arma;
 
 // internal functions used in calculating cartesian quantities
-static void kinematics(const double state[NDOF],
+static void kinematics(const vec3 & basec,
+		const vec4 & baseo, const double state[NDOF],
 		        	   double Xlink[NLINK+1][4],
 					   double Xorigin[NDOF+1][4],
 					   double Xaxis[NDOF+1][4],
@@ -40,7 +41,8 @@ static void read_default_state(vec & q_default);
 /**
  * @brief Returns the cartesian endeffector positions
  */
-void calc_cart_pos(const uvec & active_dofs, const double q_active[], vec & pos_left, vec & pos_right) {
+void calc_cart_pos(const vec3 & basec,
+		const vec4 & baseo, const uvec & active_dofs, const double q_active[], vec & pos_left, vec & pos_right) {
 
 	static double link[NLINK+1][3+1];
 	static double origin[NDOF+1][3+1];
@@ -60,7 +62,7 @@ void calc_cart_pos(const uvec & active_dofs, const double q_active[], vec & pos_
 		q(active_dofs[i]) = q_active[i];
 	}
 
-	kinematics(q.memptr(),link,origin,axis,amats);
+	kinematics(basec,baseo,q.memptr(),link,origin,axis,amats);
 	for (int i = 0; i < NCART; i++) {
 		pos_right(i) = link[R_HAND][i+1];
 		pos_left(i) = link[L_HAND][i+1];
@@ -71,7 +73,8 @@ void calc_cart_pos(const uvec & active_dofs, const double q_active[], vec & pos_
 /**
  * @brief Returns the cartesian positions and velocities of LEFT HAND and RIGHT HAND
  */
-void calc_cart_pos_and_vel(const uvec & active_dofs, const double q_active[], const double qdot_active[],
+void calc_cart_pos_and_vel(const vec3 & basec,
+		const vec4 & baseo, const uvec & active_dofs, const double q_active[], const double qdot_active[],
 		                   vec3 & pos_left, vec3 & pos_right, vec3 & vel_left, vec3 & vel_right) {
 
 	static double link[NLINK+1][3+1];
@@ -96,7 +99,7 @@ void calc_cart_pos_and_vel(const uvec & active_dofs, const double q_active[], co
 		qdot(active_dofs[i]) = qdot_active[i];
 	}
 
-	kinematics(q.memptr(),link,origin,axis,amats);
+	kinematics(basec,baseo,q.memptr(),link,origin,axis,amats);
 
 	for (int i = 0; i < NCART; i++) {
 		pos_right(i) = link[R_HAND][i+1];
@@ -118,7 +121,8 @@ void calc_cart_pos_and_vel(const uvec & active_dofs, const double q_active[], co
  *
  * Overloaded function that wraps inputs and outputs in structures
  */
-void calc_cart_pos_and_vel(const uvec & active_dofs, const joint & qdes, robot_hands & hands) {
+void calc_cart_pos_and_vel(const vec3 & basec,
+		const vec4 & baseo, const uvec & active_dofs, const joint & qdes, robot_hands & hands) {
 
 	static double link[NLINK+1][3+1];
 	static double origin[NDOF+1][3+1];
@@ -140,7 +144,7 @@ void calc_cart_pos_and_vel(const uvec & active_dofs, const joint & qdes, robot_h
 	q.elem(active_dofs) = qdes.q;
 	qdot.elem(active_dofs) = qdes.qd;
 
-	kinematics(q.memptr(),link,origin,axis,amats);
+	kinematics(basec,baseo,q.memptr(),link,origin,axis,amats);
 
 	for (int i = 0; i < NCART; i++) {
 		hands.right_pos(i) = link[R_HAND][i+1];
@@ -159,15 +163,15 @@ void calc_cart_pos_and_vel(const uvec & active_dofs, const joint & qdes, robot_h
  * TODO: Get rid of 1-based indexing for the 2-5th arguments!
  *
  */
-static void kinematics(const double state[NDOF],
-		        double Xlink[NLINK+1][4],
-				double Xorigin[NDOF+1][4],
-				double Xaxis[NDOF+1][4],
-		        double Ahmat[NDOF+1][5][5]) {
+static void kinematics(const vec3 & basec,
+						const vec4 & baseo,
+						const double state[NDOF],
+						double Xlink[NLINK+1][4],
+						double Xorigin[NDOF+1][4],
+						double Xaxis[NDOF+1][4],
+						double Ahmat[NDOF+1][5][5]) {
 
 	static bool firsttime = true;
-	static double basec[3+1] = {0.0}; //{0.0,-0.000272,-0.033644,-0.007973};
-	static double baseo[4+1] = {0.0, -1.0, 0.0, 0.0, 0.0}; //{0.0,0.999484,0.032108,-0.000179,-0.000008}; // quaternion
 	static double eff_a[NENDEFF+1][NCART+1];
 	static double eff_x[NENDEFF+1][NCART+1];
 
@@ -557,20 +561,20 @@ static void kinematics(const double state[NDOF],
 
 
 	/* inverse homogeneous rotation matrices */
-	Hi00[1][1]=-1 + 2*Power(baseo[1],2) + 2*Power(baseo[2],2);
-	Hi00[1][2]=2*(baseo[2]*baseo[3] - baseo[1]*baseo[4]);
-	Hi00[1][3]=2*(baseo[1]*baseo[3] + baseo[2]*baseo[4]);
-	Hi00[1][4]=basec[1];
+	Hi00[1][1]=-1 + 2*Power(baseo(X),2) + 2*Power(baseo(Y),2);
+	Hi00[1][2]=2*(baseo(Y)*baseo(Z) - baseo[1]*baseo(W));
+	Hi00[1][3]=2*(baseo[1]*baseo(Z) + baseo(Y)*baseo(W));
+	Hi00[1][4]=basec(X);
 
-	Hi00[2][1]=2*(baseo[2]*baseo[3] + baseo[1]*baseo[4]);
-	Hi00[2][2]=-1 + 2*Power(baseo[1],2) + 2*Power(baseo[3],2);
-	Hi00[2][3]=2*(-(baseo[1]*baseo[2]) + baseo[3]*baseo[4]);
-	Hi00[2][4]=basec[2];
+	Hi00[2][1]=2*(baseo(Y)*baseo(Z) + baseo[1]*baseo(W));
+	Hi00[2][2]=-1 + 2*Power(baseo[1],2) + 2*Power(baseo(Z),2);
+	Hi00[2][3]=2*(-(baseo[1]*baseo(Y)) + baseo(Z)*baseo(W));
+	Hi00[2][4]=basec(Y);
 
-	Hi00[3][1]=2*(-(baseo[1]*baseo[3]) + baseo[2]*baseo[4]);
-	Hi00[3][2]=2*(baseo[1]*baseo[2] + baseo[3]*baseo[4]);
-	Hi00[3][3]=-1 + 2*Power(baseo[1],2) + 2*Power(baseo[4],2);
-	Hi00[3][4]=basec[3];
+	Hi00[3][1]=2*(-(baseo[1]*baseo(Z)) + baseo(Y)*baseo(W));
+	Hi00[3][2]=2*(baseo[1]*baseo(Y) + baseo(Z)*baseo(W));
+	Hi00[3][3]=-1 + 2*Power(baseo[1],2) + 2*Power(baseo(W),2);
+	Hi00[3][4]=basec(Z);
 
 
 	Hi01[1][1]=cstate29th;
