@@ -174,12 +174,12 @@ static void kinematics(const double state[NDOF],
 	if (firsttime) {
 		firsttime = false;
 		// special parameters
-		eff_a[RIGHT_HAND+1][1]  = -PI/2.0;
-		eff_a[LEFT_HAND+1][1]   = -PI/2.0;
-		eff_a[RIGHT_HAND+1][3]  = -PI/2.0;
-		eff_a[LEFT_HAND+1][3]   = -PI/2.0;
-		eff_x[RIGHT_HAND+1][1]  = XHAND;
-		eff_x[LEFT_HAND+1][1]   = XHAND;
+		eff_a[RIGHT_HAND][1]  = -PI/2.0;
+		eff_a[LEFT_HAND][1]   = -PI/2.0;
+		eff_a[RIGHT_HAND][3]  = -PI/2.0;
+		eff_a[LEFT_HAND][3]   = -PI/2.0;
+		eff_x[RIGHT_HAND][1]  = XHAND;
+		eff_x[LEFT_HAND][1]   = XHAND;
 		//baseo[1] = 1.0;
 	}
 

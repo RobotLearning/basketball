@@ -152,7 +152,7 @@ void integrate_ball_state(const double dt, const SL_Cstate robot_state[NENDEFF+1
 	static Ball ball = Ball();
 	robot_hands hands(robot_state[LEFT_HAND].x,robot_state[RIGHT_HAND].x,
 			                robot_state[LEFT_HAND].xd,robot_state[RIGHT_HAND].xd,1);
-
+	save_cartesian_data(robot_state);
 	ball.integrate_ball_state(hands,dt);
 	ball.get_state(ball_state);
 	ball.get_env_params(env_vars);
@@ -305,6 +305,49 @@ static void save_joint_data(const SL_Jstate joint_state[NDOF+1],
 }
 
 /**
+ * @brief Saves actual Cartesian data if save flag is set to TRUE.
+ *
+ * OVERLOADED function, this one gets the Cartesian actual values from SL.
+ * No need to compute kinematics/jacobian.
+ *
+ * Useful for debugging kinematics function.
+ *
+ *
+ */
+static void save_cartesian_data(const SL_Cstate robot_state[NENDEFF+1]) {
+
+	static std::ofstream stream;
+	static const std::string home = std::getenv("HOME");
+	static const std::string cart_file = home + "/basketball/data/cartesian_SL.txt";
+	static vec cart_act = zeros<vec>(2*2*NCART);
+	static bool firsttime = true;
+	static robot_hands hands;
+	static joint qdes, qact;
+
+	if (firsttime) {
+		stream.open(cart_file,std::ofstream::out);
+		firsttime = false;
+	}
+
+	for (int i = 0; i < NCART; i++) {
+		cart_act(i) = robot_state[LEFT_HAND].x[i+1];
+		cart_act(i+NCART) = robot_state[LEFT_HAND].xd[i+1];
+		cart_act(i+2*NCART) = robot_state[RIGHT_HAND].x[i+1];
+		cart_act(i+3*NCART) = robot_state[RIGHT_HAND].xd[i+1];
+	}
+
+	if (options.save) {
+		if (!stream.is_open()) {
+			stream.open(cart_file,std::ofstream::out | std::ofstream::app);
+		}
+		stream << cart_act.t();
+	}
+	else {
+		stream.close();
+	}
+}
+
+/**
  * @brief Saves actual/desired Cartesian data if save flag is set to TRUE
  *
  * If trajectory is being tracked
@@ -330,7 +373,7 @@ static void save_cartesian_data(const SL_Jstate joint_state[NDOF+1],
 		firsttime = false;
 	}
 
-	for (int i = 0; i < active_dofs.n_elem; i++) {
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
 		qdes.q(i) = joint_des_state[active_dofs(i)+1].th;
 		qdes.qd(i) = joint_des_state[active_dofs(i)+1].thd;
 		qact.q(i) = joint_state[active_dofs(i)+1].th;

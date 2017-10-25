@@ -71,6 +71,7 @@ class Ball {
 private:
 	vec3 pos;
 	vec3 vel;
+	bool hit = false;
 	bool verbose = false;
 	ball_params param;
 public:
@@ -85,6 +86,8 @@ public:
 	void set_state(const double ball_state[]);
 	void get_env_params(ball_params & par) const;
 	void get_env_params(double env_vars[5]) const;
+	bool check_for_hit() const;
+	void check_for_contact(const vec3 & robot_pos, const vec3 & robot_vel);
 };
 
 // ball models
@@ -92,7 +95,5 @@ vec calc_next_ball(const vec & xnow, const double dt, const void *fp);
 void ball_pendulum_model(const double dt, ball_params & param);
 void calc_angle_from_ball(const vec3 & ball_pos, const vec3 & ball_vel, ball_params & param);
 void calc_ball_from_angle(const ball_params & param, vec3 & ball_pos, vec3 & ball_vel);
-void check_for_contact(const vec3 & robot_pos, const vec3 & robot_vel, const vec3 & ball_pos, const bool verbose,
-					   ball_params & param, vec3 & ball_vel);
 
 #endif /* INCLUDE_BALL_H_ */

@@ -103,8 +103,8 @@ void Ball::integrate_ball_state(const robot_hands & robot, double dt) {
 	calc_ball_from_angle(param, pos, vel);
 
 	if (CHECK_CONTACTS) {
-		check_for_contact(robot.left_pos, robot.left_vel, pos, verbose, param, vel);
-		check_for_contact(robot.right_pos, robot.right_vel, pos, verbose, param, vel);
+		check_for_contact(robot.left_pos, robot.left_vel);
+		check_for_contact(robot.right_pos, robot.right_vel);
 	}
 }
 
@@ -150,6 +150,46 @@ void Ball::get_env_params(double env_vars[6]) const {
 	env_vars[3] = param.base_pendulum[Y];
 	env_vars[4] = param.base_pendulum[Z];
 	env_vars[5] = param.theta;
+}
+
+/**
+ * @brief Modify the incoming basketball velocity and string angle velocity in case of contact.
+ *
+ * Contact occurs if the norm of the difference between the arm and the ball is less than
+ * or equal to the ball radius.
+ * The contact model is an IDEAL MOMENTUM EXCHANGE assuming mass_robot >> mass_ball!
+ */
+void Ball::check_for_contact(const vec3 & robot_pos, const vec3 & robot_vel) {
+
+	static wall_clock timer;
+	static bool firsttime = true;
+
+	if (firsttime) {
+		firsttime = false;
+		timer.tic();
+	}
+
+	if (norm(robot_pos - pos) <= param.radius && timer.toc() > param.threshold) { // contact occurs
+		if (verbose)
+			cout << "CONTACT between ball and robot!\n";
+		hit = true;
+		// change velocities
+		vel = -param.restitution * vel + (1 + param.restitution)*robot_vel;
+		// change string angle velocity
+		param.theta_dot = -vel(Y) / ((param.string_len + param.radius) * cos(param.theta));
+		timer.tic();
+	}
+}
+
+/*
+ * @brief Check if the ball was hit or not.
+ *
+ * If contact with ball occurs, check_for_contact() sets hit boolean to true,
+ * which always remains true (is not reset!).
+ */
+bool Ball::check_for_hit() const {
+
+	return hit;
 }
 
 /**
@@ -209,34 +249,3 @@ void calc_ball_from_angle(const ball_params & param, vec3 & ball_pos, vec3 & bal
 	ball_vel(Y) = -(param.string_len + param.radius) * param.theta_dot * cos(param.theta);
 	ball_vel(Z) = (param.string_len + param.radius) * param.theta_dot * sin(param.theta);
 }
-
-/**
- * @brief Modify the incoming basketball velocity and string angle velocity in case of contact.
- *
- * Contact occurs if the norm of the difference between the arm and the ball is less than
- * or equal to the ball radius.
- * The contact model is an IDEAL MOMENTUM EXCHANGE assuming mass_robot >> mass_ball!
- */
-void check_for_contact(const vec3 & robot_pos, const vec3 & robot_vel, const vec3 & ball_pos, const bool verbose,
-					   ball_params & param, vec3 & ball_vel) {
-
-	static wall_clock timer;
-	static bool firsttime = true;
-
-	if (firsttime) {
-		firsttime = false;
-		timer.tic();
-	}
-
-	if (norm(robot_pos - ball_pos) <= param.radius && timer.toc() > param.threshold) { // contact occurs
-		if (verbose)
-			cout << "CONTACT between ball and robot!\n";
-		// change velocities
-		ball_vel = -param.restitution * ball_vel + (1 + param.restitution)*robot_vel;
-		// change string angle velocity
-		param.theta_dot = -ball_vel(Y) / ((param.string_len + param.radius) * cos(param.theta));
-		timer.tic();
-	}
-}
-
-

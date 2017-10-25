@@ -131,6 +131,8 @@ enum RobotLinks {
 /** endeffector indices of cart_des_state from SL */
 enum RobotEndeffectors {
 
+	DUMMY,
+
 	RIGHT_HAND,
 	LEFT_HAND,
 	RIGHT_FOOT,

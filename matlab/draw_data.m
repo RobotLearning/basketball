@@ -48,6 +48,12 @@ scatter3(left_act_pos(:,1),left_act_pos(:,2),left_act_pos(:,3),'k');
 scatter3(right_des_pos(:,1),right_des_pos(:,2),right_des_pos(:,3),'r');
 scatter3(right_act_pos(:,1),right_act_pos(:,2),right_act_pos(:,3),'b');
 
+% compare with SL computed kinematics
+cart_sl_filename = '~/basketball/data/cartesian_SL.txt';
+CSL = dlmread(cart_sl_filename);
+left_act_sl = CSL(vec,1:3);
+scatter3(left_act_sl(:,1),left_act_sl(:,2),left_act_sl(:,3),'g');
+
 %% Draw the ball and initial robot loc
 string_len = 1.0;
 ball_loc = [0.0, 0.3, 1.5-string_len];
