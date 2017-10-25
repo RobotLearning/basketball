@@ -106,6 +106,7 @@ private:
 	vec qfdot = zeros<vec>(NDOF_OPT); //!< saved joint velocities after optim
 	double T = 1.0; //!< saved hitting time after optim terminates
 
+	void load_soln_from_file(double x[OPTIM_DIM]) const;
 	void init_last_soln(double *x) const;
 	void init_rest_soln(double *x) const;
 	double test_soln(const double *x) const;

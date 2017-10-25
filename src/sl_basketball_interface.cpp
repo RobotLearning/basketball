@@ -174,7 +174,7 @@ void integrate_ball_state(const double dt, const SL_Cstate robot_state[NENDEFF+1
 	static Ball ball = Ball();
 	robot_hands hands(robot_state[LEFT_HAND].x,robot_state[RIGHT_HAND].x,
 			                robot_state[LEFT_HAND].xd,robot_state[RIGHT_HAND].xd,1);
-	save_cartesian_data(robot_state);
+	//save_cartesian_data(robot_state);
 	ball.integrate_ball_state(hands,dt);
 	ball.get_state(ball_state);
 	ball.get_env_params(env_vars);

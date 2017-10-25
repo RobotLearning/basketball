@@ -217,6 +217,48 @@ void Optim::run() {
 }
 
 /**
+ * @brief Load initial solution vector from a file
+ */
+void Optim::load_soln_from_file(double x[OPTIM_DIM]) const {
+
+	static bool firsttime = true;
+	using namespace std;
+	static mat init_soln = zeros<mat>(2,OPTIM_DIM);
+	static string homename = getenv("HOME");
+	static string fullname = homename + "/basketball/init_soln.txt";
+	static vec7 qf_left, qf_right, qfd_left, qfd_right;
+	static double T_left, T_right;
+
+	if (firsttime) {
+		init_soln.load(fullname);
+		rowvec soln_left = init_soln.row(1);
+		rowvec soln_right = init_soln.row(0);
+		qf_left = soln_left.head(NDOF_OPT).t();
+		qf_right = soln_right.head(NDOF_OPT).t();
+		qfd_left = soln_left(span(NDOF_OPT,2*NDOF_OPT-1)).t();
+		qfd_right = soln_right(span(NDOF_OPT,2*NDOF_OPT-1)).t();
+		T_left = soln_left(2*NDOF_OPT);
+		T_right = soln_right(2*NDOF_OPT);
+		firsttime = false;
+	}
+
+	if (right_arm) {
+		for (int i = 0; i < NDOF_OPT; i++) {
+			x[i] = qf_right(i);
+			x[i+NDOF_OPT] = qfd_right(i);
+		}
+		x[2*NDOF_OPT] = T_right;
+	}
+	else {
+		for (int i = 0; i < NDOF_OPT; i++) {
+			x[i] = qf_left(i);
+			x[i+NDOF_OPT] = qfd_left(i);
+		}
+		x[2*NDOF_OPT] = T_left;
+	}
+}
+
+/**
  * @brief NLOPT optimization happens here.
  */
 void Optim::optim() {
@@ -225,12 +267,8 @@ void Optim::optim() {
 	running = true;
 	double x[OPTIM_DIM];
 
-	if (moving) {
-		init_last_soln(x);
-	}
-	else {
-		init_rest_soln(x);
-	}
+	init_rest_soln(x);
+	//load_soln_from_file(x);
 
 	double init_time = get_time();
 	double past_time = 0.0;
