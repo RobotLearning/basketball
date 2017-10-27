@@ -16,12 +16,6 @@
 
 using namespace arma;
 
-enum alg { //type of algorithm
-	LEFT_HAND_OPT,
-	RIGHT_HAND_OPT,
-	BOTH_HAND_OPT
-};
-
 /**
  * @brief Options passed to Player class (algorithm, saving, corrections, etc.).
  */
@@ -38,7 +32,6 @@ struct player_flags {
 	double t_reset_thresh = 0.3; //!< resetting Kalman filter after this many seconds pass without getting valid obs.
 	vec3 basec = zeros<vec>(NCART);
 	vec4 baseo = {-1.0, 0.0, 0.0, 0.0};
-	alg optim_type = RIGHT_HAND_OPT;
 };
 
 /**
@@ -62,10 +55,8 @@ private:
 	optim_kin_params kinematics_params;
 	mat observations; // for initializing filter
 	mat times; // for initializing filter
-	spline_params poly_left;
-	spline_params poly_right;
-	Optim *opt_left; // optimizers
-	Optim *opt_right;
+	spline_params poly;
+	Optim *opt; // optimizers
 
 	// ball estimation
 	void estimate_ball_state(const vec3 & obs);
@@ -110,7 +101,6 @@ bool check_new_obs(const vec3 & obs, double tol);
 // movement generation
 bool update_next_state(const vec & q_rest_des,
 				   const double time2return,
-				   const bool right_arm,
 				   spline_params & poly,
 				   joint & qdes);
 

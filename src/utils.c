@@ -20,16 +20,16 @@ void print_optim_vec(const double *x) {
 
 	int i;
 	printf("qf = [");
-	for (i = 0; i < NDOF_OPT; i++) {
+	for (i = 0; i < NDOF_ACTIVE; i++) {
 		printf("%.2f  ", x[i]);
 	}
 	printf("]\n");
 	printf("qfdot = [");
-	for (i = 0; i < NDOF_OPT; i++) {
-		printf("%.2f  ", x[i+NDOF_OPT]);
+	for (i = 0; i < NDOF_ACTIVE; i++) {
+		printf("%.2f  ", x[i+NDOF_ACTIVE]);
 	}
 	printf("]\n");
-	printf("T = %.2f\n", x[2*NDOF_OPT]);
+	printf("T = %.2f\n", x[2*NDOF_ACTIVE]);
 }
 
 
