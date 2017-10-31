@@ -77,8 +77,8 @@ BOOST_AUTO_TEST_CASE(test_kinematics) {
 	//double q_active[NDOF_OPT] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
 	const vec3 basec = {0.0, 0.0, 0.0};
 	const vec4 baseo = {-1.0, 0.0, 0.0, 0.0};
-	double q_active[NDOF_ACTIVE] = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
-								 0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
+	vec q_active = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
+				    0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
 	vec3 pos_left;
 	vec3 pos_right;
 	vec3 pos_des_left = {-0.274191,0.376646,0.197571}; //{-0.274,0.33,0.213};
@@ -100,11 +100,10 @@ BOOST_AUTO_TEST_CASE(test_jacobian) {
 	const double dt = 1e-5;
 	const vec3 basec = {0.0, 0.0, 0.0};
 	const vec4 baseo = {-1.0, 0.0, 0.0, 0.0};
-	//double q_active[NDOF_OPT] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
-	double q_active[NDOF_ACTIVE] = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
-								    0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
-	double qdot_active[NDOF_ACTIVE];
-	double q_perturb[NDOF_ACTIVE];
+	vec q_active = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
+				    0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
+	vec qdot_active = zeros<vec>(NDOF_ACTIVE);
+	vec q_perturb = zeros<vec>(NDOF_ACTIVE);
 
 	vec3 pos_left, pos_right, vel_left, vel_right;
 	vec3 pos_diff_left, pos_diff_right, vel_diff_left, vel_diff_right;
@@ -193,7 +192,7 @@ BOOST_DATA_TEST_CASE(test_player, data::xrange(2), touch_idx) {
 	qact.q = qdes.q;
 	EKF filter = init_filter();
 	player_flags flags;
-	flags.detach = false;
+	flags.detach = true;
 	flags.verbosity = 2;
 	flags.touch = !touch_idx;
 	Ball ball = Ball();

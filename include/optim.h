@@ -90,7 +90,7 @@ struct weights {
  */
 class Optim {
 
-private:
+public:
 
 	static const int OPTIM_DIM = 2*NDOF_ACTIVE + 1; //!< dim. of optim problem
 	bool lookup = false; //!< use lookup table methods to init. optim params.
@@ -113,8 +113,6 @@ private:
 	void optim_rest_posture(vec & q_rest_des);
 	void optim();
 
-public:
-
 	double time2return = 0.5; //!< Desired time to return to resting state
 	optim_kin_params *param_des; //!< Desired racket and/or ball predicted vals.
 	vec lb = zeros<vec>(2*NDOF_ACTIVE+1); //!< Joint lower limits, joint vel. lower limit and min. hitting time
@@ -131,6 +129,7 @@ public:
 	void set_moving(bool flag);
 	void set_detach(bool flag);
 	void set_verbose(bool flag);
+	void set_soln(const double *x);
 	void update_rest_state(const vec & q_rest_new);
 	bool get_params(const joint & qact, spline_params & p);
 	void run_qrest_optim(vec7 & q_rest_des);
@@ -145,18 +144,14 @@ public:
 void joint_limits_ineq_constr(unsigned m, double *result,
 		                      unsigned n, const double *x, double *grad, void *data);
 
-void calc_strike_poly_coeff(const vec & q0, const vec & q0dot, const double *x,
-		                    double *a1, double *a2);
-void calc_return_poly_coeff(const vec & qrest, const vec & qrest_dot,
-		                    const double *x, const double time2return,
-		                    double *a1, double *a2);
-void calc_strike_extrema_cand(const double *a1, const double *a2, const double T,
+void calc_poly_coeff(const vec & q0, const vec & q0dot,
+							const vec & qf, const vec & qfdot, const double & T,
+		                    vec & a1, vec & a2);
+void calc_extrema_cand(const vec & a1, const vec & a2, const double & T,
 		                      const vec & q0, const vec & q0dot,
-							  double *joint_max_cand, double *joint_min_cand);
-void calc_return_extrema_cand(const double *a1, const double *a2,
-		                      const double *x, const double time2return,
-							  double *joint_max_cand, double *joint_min_cand);
-double calc_max_acc_violation(const double x[2*NDOF_ACTIVE+1], const vec & q0, const vec & q0dot);
+		                      vec & joint_max_cand, vec & joint_min_cand);
+double calc_max_acc_violation(const vec & q0, const vec & q0dot,
+		                      const vec & qf, const vec & qfdot, const double & T);
 
 // set upper and lower bounds for optimization
 void set_bounds(const uvec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub);
