@@ -38,24 +38,32 @@ inline void init_default_posture(const bool right, vec & q0) {
 	q0(6) = 0.0;
 }
 
-/**
- * @brief Calculate minimum distance between robot hand and ball
- */
-inline double calc_min_distance(const mat & xdes, const mat & balls) {
-
-	// first get left hand min distance
-	mat diff = xdes.rows(0,2) - balls;
-	rowvec diff_norms = sqrt(sum(diff % diff,0));
-	uword idx = index_min(diff_norms);
-	double min_dist_left = diff_norms(idx);
-	// then get right hand min distance
-	diff = xdes.rows(3,5) - balls;
-	diff_norms = sqrt(sum(diff % diff,0));
-	idx = index_min(diff_norms);
-	double min_dist_right = diff_norms(idx);
-
-	return fmax(min_dist_left,min_dist_right);
-}
+///**
+// * @brief Calculate minimum distance between robot hand and ball
+// */
+//inline double calc_min_distance(const alg & optim_type, const mat & xdes, const mat & balls) {
+//
+//	// first get left hand min distance
+//	mat diff = xdes.rows(0,2) - balls;
+//	rowvec diff_norms = sqrt(sum(diff % diff,0));
+//	uword idx = index_min(diff_norms);
+//	double min_dist_left = diff_norms(idx);
+//	// then get right hand min distance
+//	diff = xdes.rows(3,5) - balls;
+//	diff_norms = sqrt(sum(diff % diff,0));
+//	idx = index_min(diff_norms);
+//	double min_dist_right = diff_norms(idx);
+//
+//	if (optim_type == LEFT_HAND_OPT) {
+//		return min_dist_left;
+//	}
+//	else if (optim_type == RIGHT_HAND_OPT) {
+//		return min_dist_right;
+//	}
+//	else { // both hands were optimized
+//		return fmax(min_dist_left,min_dist_right);
+//	}
+//}
 
 /*
  * Testing if the kinematics was copied correctly from SL
@@ -69,8 +77,8 @@ BOOST_AUTO_TEST_CASE(test_kinematics) {
 	//double q_active[NDOF_OPT] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
 	const vec3 basec = {0.0, 0.0, 0.0};
 	const vec4 baseo = {-1.0, 0.0, 0.0, 0.0};
-	vec q_active = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
-				    0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
+	double q_active[NDOF_ACTIVE] = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
+								 0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
 	vec3 pos_left;
 	vec3 pos_right;
 	vec3 pos_des_left = {-0.274191,0.376646,0.197571}; //{-0.274,0.33,0.213};
@@ -92,10 +100,11 @@ BOOST_AUTO_TEST_CASE(test_jacobian) {
 	const double dt = 1e-5;
 	const vec3 basec = {0.0, 0.0, 0.0};
 	const vec4 baseo = {-1.0, 0.0, 0.0, 0.0};
-	vec q_active = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
-				    0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
-	vec qdot_active = zeros<vec>(NDOF_ACTIVE);
-	vec q_perturb = zeros<vec>(NDOF_ACTIVE);
+	//double q_active[NDOF_OPT] = {-0.005,-0.186,-0.009,1.521,0.001,-0.001,-0.004,};
+	double q_active[NDOF_ACTIVE] = {0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0,
+								    0.0, -0.2, 0.0, 1.57, 0.0, 0.0, 0.0};
+	double qdot_active[NDOF_ACTIVE];
+	double q_perturb[NDOF_ACTIVE];
 
 	vec3 pos_left, pos_right, vel_left, vel_right;
 	vec3 pos_diff_left, pos_diff_right, vel_diff_left, vel_diff_right;
@@ -167,7 +176,7 @@ BOOST_DATA_TEST_CASE(test_optim, data::xrange(2), touch) {
  * Testing whether the ball can be touched.
  * The combinations are : LEFT HAND/RIGHT HAND/BOTH HANDS, HIT/TOUCH, PLAY/CHEAT
  */
-BOOST_DATA_TEST_CASE(test_player, data::xrange(1), touch_idx) {
+BOOST_DATA_TEST_CASE(test_player, data::xrange(2), touch_idx) {
 
 	std::string touch_str[2] = {"TOUCH", "HIT"};
 	cout << "\nTesting the player for " << touch_str[touch_idx] << endl;
@@ -220,9 +229,6 @@ BOOST_DATA_TEST_CASE(test_player, data::xrange(1), touch_idx) {
 	balls_pos.save("balls_pos.txt",csv_ascii);
 	xdes.save("robot_cart.txt",csv_ascii);
 
-	double dist = calc_min_distance(xdes,balls_pos);
-
 	cout << "Testing for ball contact...\n";
-	cout << "Minimum distance between ball and robot: " << dist << endl;
 	BOOST_TEST(ball.check_for_hit());
 }

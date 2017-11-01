@@ -43,7 +43,7 @@ static void read_default_state(vec & q_default);
  * @brief Returns the cartesian endeffector positions
  */
 void calc_cart_pos(const vec3 & basec,
-		const vec4 & baseo, const uvec & active_dofs, const vec & q_active, vec & pos_left, vec & pos_right) {
+		const vec4 & baseo, const uvec & active_dofs, const double q_active[], vec & pos_left, vec & pos_right) {
 
 	static double link[NLINK+1][3+1];
 	static double origin[NDOF+1][3+1];
@@ -59,7 +59,9 @@ void calc_cart_pos(const vec3 & basec,
 	}
 
 	q = q_default;
-	q.elem(active_dofs) = q_active;
+	for (int i = 0; i < active_dofs.n_elem; i++) {
+		q(active_dofs[i]) = q_active[i];
+	}
 
 	kinematics(basec,baseo,q.memptr(),link,origin,axis,amats);
 	for (int i = 0; i < NCART; i++) {
@@ -73,8 +75,8 @@ void calc_cart_pos(const vec3 & basec,
  * @brief Returns the cartesian positions and velocities of LEFT HAND and RIGHT HAND
  */
 void calc_cart_pos_and_vel(const vec3 & basec,
-		const vec4 & baseo, const uvec & active_dofs, const vec & q_active, const vec & qdot_active,
-		vec3 & pos_left, vec3 & pos_right, vec3 & vel_left, vec3 & vel_right) {
+		const vec4 & baseo, const uvec & active_dofs, const double q_active[], const double qdot_active[],
+		                   vec3 & pos_left, vec3 & pos_right, vec3 & vel_left, vec3 & vel_right) {
 
 	static double link[NLINK+1][3+1];
 	static double origin[NDOF+1][3+1];
@@ -93,8 +95,10 @@ void calc_cart_pos_and_vel(const vec3 & basec,
 
 	q = q_default;
 	qdot = zeros<vec>(NDOF);
-	q.elem(active_dofs) = q_active;
-	qdot.elem(active_dofs) = qdot_active;
+	for (int i = 0; i < active_dofs.n_elem; i++) {
+		q(active_dofs[i]) = q_active[i];
+		qdot(active_dofs[i]) = qdot_active[i];
+	}
 
 	kinematics(basec,baseo,q.memptr(),link,origin,axis,amats);
 
