@@ -2,7 +2,7 @@
 
 clc; clear; close all;
 
-idx = 1:10;
+idx = 1:650;
 P = load('balls_pos.txt');
 %V = load('balls_vel.txt');
 R = load('robot_cart.txt');

@@ -48,6 +48,7 @@ Optim::Optim(const vec & qrest_, const bool touch_) : touch(touch_) {
 	double Tmax = 2.0;
 	set_bounds(active_dofs,SLACK,Tmax,lb,ub);
 
+	//opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
 	opt = nlopt_create(NLOPT_LD_SLSQP, OPTIM_DIM);
 	nlopt_set_xtol_rel(opt, 1e-2);
 	nlopt_set_lower_bounds(opt, lb.memptr());
