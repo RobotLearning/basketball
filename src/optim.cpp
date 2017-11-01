@@ -419,8 +419,8 @@ static void touch_constr(unsigned m, double *result, unsigned n,
 	diff_right = norm(pos_right - ball_centre_pos);
 	diff_left = norm(pos_left - ball_centre_pos);
 
-	result[0] = diff_left - opt->ballparams.radius;
-	result[1] = diff_right - opt->ballparams.radius;
+	result[0] = diff_left - (opt->ballparams.radius - PUSH_EQ_CONSTR);
+	result[1] = diff_right - (opt->ballparams.radius - PUSH_EQ_CONSTR);
 }
 
 /*
@@ -484,8 +484,8 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 	/*cout << "THETA POS: " << opt->ballparams.theta << endl;
 	cout << "THETA VEL: " << opt->ballparams.theta_dot;
 	cout << endl;*/
-	result[0] = diff_left - opt->ballparams.radius;
-	result[1] = diff_right - opt->ballparams.radius;
+	result[0] = diff_left - (opt->ballparams.radius - PUSH_EQ_CONSTR);
+	result[1] = diff_right - (opt->ballparams.radius - PUSH_EQ_CONSTR);
 	result[2] = opt->ballparams.theta_dot - opt->ballparams.theta_dot_des;
 }
 
