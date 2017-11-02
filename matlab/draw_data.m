@@ -59,7 +59,7 @@ scatter3(right_act_pos(:,1),right_act_pos(:,2),right_act_pos(:,3),'b');
 %% Draw the ball and initial robot loc
 string_len = 1.0;
 ball_radius = 0.1213;
-ball_loc = [0.0, 0.4, 1.5-string_len-ball_radius];
+ball_loc = [0.0, 0.5, 1.5-string_len-ball_radius];
 basketball_color = [207,83,0]/256;
 numPoints = 100;
 [ballMeshX,ballMeshY,ballMeshZ] = sphere(numPoints);
