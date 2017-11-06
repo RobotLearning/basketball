@@ -23,7 +23,7 @@
 
 // defines
 const int EQ_TOUCH_CONSTR_DIM = 2;
-const int EQ_HIT_CONSTR_DIM = 3;
+const int EQ_HIT_CONSTR_DIM = 4;
 const int INEQ_CONSTR_DIM = 2*NDOF_ACTIVE + 2*NDOF_ACTIVE; // both strike and returning trajectories, min and max
 const double MAX_VEL = 10;
 const double MAX_ACC = 200;

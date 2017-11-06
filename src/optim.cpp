@@ -487,60 +487,7 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 	result[0] = diff_left - (opt->ballparams.radius - PUSH_EQ_CONSTR);
 	result[1] = diff_right - (opt->ballparams.radius - PUSH_EQ_CONSTR);
 	result[2] = opt->ballparams.theta_dot - opt->ballparams.theta_dot_des;
-}
-
-/*
- * This is the inequality constraint that makes sure the TWO ARMS do not CROSS EVER!
- */
-static void do_not_cross_constr(unsigned m, double *result,
-		unsigned n, const double *x, double *grad, void *my_func_params) {
-
-	thread_local double a1[NDOF_ACTIVE];
-	thread_local double a2[NDOF_ACTIVE];
-	thread_local double a1ret[NDOF_ACTIVE]; // coefficients for the returning polynomials
-	thread_local double a2ret[NDOF_ACTIVE];
-	thread_local double joint_strike_max_cand[NDOF_ACTIVE];
-	thread_local double joint_strike_min_cand[NDOF_ACTIVE];
-	thread_local double joint_return_max_cand[NDOF_ACTIVE];
-	thread_local double joint_return_min_cand[NDOF_ACTIVE];
-	thread_local vec qdot_rest = zeros<vec>(NDOF_ACTIVE);
-
-	Optim *opt = (Optim*) my_func_params;
-	double Tret = opt->time2return;
-
-	if (grad) {
-		thread_local double h = 1e-6;
-		thread_local double res_plus[INEQ_CONSTR_DIM], res_minus[INEQ_CONSTR_DIM];
-		thread_local double xx[2*NDOF_ACTIVE+1];
-		for (unsigned i = 0; i < n; i++)
-			xx[i] = x[i];
-		for (unsigned i = 0; i < n; i++) {
-			xx[i] += h;
-			do_not_cross_constr(m, res_plus, n, xx, NULL, my_func_params);
-			xx[i] -= 2*h;
-			do_not_cross_constr(m, res_minus, n, xx, NULL, my_func_params);
-			xx[i] += h;
-			for (unsigned j = 0; j < m; j++)
-				grad[j*n + i] = (res_plus[j] - res_minus[j]) / (2*h);
-		}
-	}
-
-	// calculate the polynomial coeffs which are used for checking joint limits
-	calc_strike_poly_coeff(opt->q0,opt->q0dot,x,a1,a2);
-	calc_return_poly_coeff(opt->qrest,qdot_rest,x,Tret,a1ret,a2ret);
-	// calculate the candidate extrema both for strike and return
-	calc_strike_extrema_cand(a1,a2,x[2*NDOF_ACTIVE],opt->q0,opt->q0dot,
-			joint_strike_max_cand,joint_strike_min_cand);
-	calc_return_extrema_cand(a1ret,a2ret,x,Tret,joint_return_max_cand,joint_return_min_cand);
-
-	/* deviations from joint min and max */
-	for (int i = 0; i < NDOF_ACTIVE; i++) {
-		result[i] = joint_strike_max_cand[i] - opt->ub(i);
-		result[i+NDOF_ACTIVE] = opt->lb(i) - joint_strike_min_cand[i];
-		result[i+2*NDOF_ACTIVE] = joint_return_max_cand[i] - opt->ub(i);
-		result[i+3*NDOF_ACTIVE] = opt->lb(i) - joint_return_min_cand[i];
-		//printf("%f %f %f %f\n", result[i],result[i+DOF],result[i+2*DOF],result[i+3*DOF]);
-	}
+	result[3] = vel_right(X) + vel_left(X);
 }
 
 /*
