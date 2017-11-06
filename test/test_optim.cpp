@@ -144,12 +144,10 @@ BOOST_AUTO_TEST_CASE(test_jacobian) {
  * Testing the optimization of a Basketball player touching a ball
  * attached to a string (moving in 2d: y and z axis)
  */
-BOOST_DATA_TEST_CASE(test_optim, data::xrange(2) * data::xrange(2), touch, hand) {
+BOOST_DATA_TEST_CASE(test_optim, data::xrange(2), touch) {
 
 	std::string touch_str[2] = {"TOUCH", "HIT"};
-	std::string hand_str[2] = {"LEFT HAND", "RIGHT HAND"};
-	cout << "\nTesting the optimization for " << touch_str[touch]
-		 << " with " << hand_str[hand] << endl;
+	cout << "\nTesting the optimization for " << touch_str[touch] << endl;
 	int N = 1000;
 	vec q0 = zeros<vec>(NDOF_OPT);
 	joint qact;
@@ -167,7 +165,7 @@ BOOST_DATA_TEST_CASE(test_optim, data::xrange(2) * data::xrange(2), touch, hand)
 	params.ball_pos = balls_pred.rows(X,Z);
 	params.ball_vel = balls_pred.rows(DX,DZ);
 
-	Optim opt = Optim(q0,hand,touch);
+	Optim opt = Optim(qact.q,!touch);
 	opt.set_kinematics_params(&params);
 	opt.update_init_state(qact);
 	opt.run();
@@ -178,12 +176,10 @@ BOOST_DATA_TEST_CASE(test_optim, data::xrange(2) * data::xrange(2), touch, hand)
  * Testing whether the ball can be touched.
  * The combinations are : LEFT HAND/RIGHT HAND/BOTH HANDS, HIT/TOUCH, PLAY/CHEAT
  */
-BOOST_DATA_TEST_CASE(test_player, data::xrange(2) * data::xrange(3), touch_idx, hand_idx) {
+BOOST_DATA_TEST_CASE(test_player, data::xrange(2), touch_idx) {
 
 	std::string touch_str[2] = {"TOUCH", "HIT"};
-	std::string hand_str[3] = {"LEFT HAND", "RIGHT HAND", "BOTH HANDS"};
-	cout << "\nTesting the player for " << touch_str[touch_idx]
-		 << " with " << hand_str[hand_idx] << endl;
+	cout << "\nTesting the player for " << touch_str[touch_idx] << endl;
 
 	const double basketball_radius = 0.1213;
 	int N = 1000;
@@ -198,10 +194,9 @@ BOOST_DATA_TEST_CASE(test_player, data::xrange(2) * data::xrange(3), touch_idx, 
 	EKF filter = init_filter();
 	player_flags flags;
 	flags.detach = false;
-	flags.verbosity = 1;
-	flags.optim_type = alg(hand_idx);
+	flags.verbosity = 2;
 	flags.touch = !touch_idx;
-	Ball ball = Ball();
+	Ball ball = Ball(); // ball config file will be loaded!
 	Player robot = Player(qact.q,filter,flags);
 	mat66 P; P.eye();
 	mat xdes = zeros<mat>(2*NCART,N);

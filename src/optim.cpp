@@ -34,7 +34,7 @@ static void first_order_hold(const optim_kin_params* data, const double T, vec3 
  * @param lb_ Fixed joint lower limits
  * @param ub_ Fixed joint upper limits
  */
-Optim::Optim(const vec & qrest_, const bool right, const bool touch_) : right_arm(right), touch(touch_) {
+Optim::Optim(const vec & qrest_, const bool touch_) : touch(touch_) {
 
 	Ball ball = Ball();
 	ball.get_env_params(ballparams);
@@ -45,10 +45,9 @@ Optim::Optim(const vec & qrest_, const bool right, const bool touch_) : right_ar
 
 	double SLACK = 0.02;
 	double Tmax = 2.0;
-	active_dofs = (right_arm ? RIGHT_ARM : LEFT_ARM);
 	set_bounds(active_dofs,SLACK,Tmax,lb,ub);
 
-	opt = nlopt_create(NLOPT_LN_COBYLA, OPTIM_DIM);
+	opt = nlopt_create(NLOPT_LD_SLSQP, OPTIM_DIM);
 	nlopt_set_xtol_rel(opt, 1e-2);
 	nlopt_set_lower_bounds(opt, lb.memptr());
 	nlopt_set_upper_bounds(opt, ub.memptr());
@@ -66,14 +65,8 @@ Optim::Optim(const vec & qrest_, const bool right, const bool touch_) : right_ar
  */
 void Optim::update_init_state(const joint & qact) {
 
-	if (right_arm) {
-		q0 = qact.q.tail(NDOF_OPT);
-		q0dot = qact.qd.tail(NDOF_OPT);
-	}
-	else {
-		q0 = qact.q.head(NDOF_OPT);
-		q0dot = qact.qd.head(NDOF_OPT);
-	}
+	q0 = qact.q;
+	q0dot = qact.qd;
 }
 
 /**
@@ -146,29 +139,22 @@ void Optim::set_verbose(bool flag_verbose) {
  */
 bool Optim::get_params(const joint & qact, spline_params & p) {
 
-	vec qnow = zeros<vec>(NDOF_OPT);
-	vec qdnow = zeros<vec>(NDOF_OPT);
+	vec qnow = zeros<vec>(NDOF_ACTIVE);
+	vec qdnow = zeros<vec>(NDOF_ACTIVE);
 	bool flag = false;
 	if (update && !running) {
-		if (right_arm) {
-			qnow = qact.q.tail(NDOF_OPT);
-			qdnow = qact.qd.tail(NDOF_OPT);
-		}
-		else {
-			qnow = qact.q.head(NDOF_OPT);
-			qdnow = qact.qd.head(NDOF_OPT);
-		}
+		qnow = qact.q;
+		qdnow = qact.qd;
 		p.a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
 		p.a.col(1) = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
 		p.a.col(2) = qdnow;
 		p.a.col(3) = qnow;
-		//cout << "A = \n" << p.a << endl;
 		p.b.col(0) = 2.0 * (qf - qrest) / pow(time2return,3) + (qfdot) / pow(time2return,2);
 		p.b.col(1) = 3.0 * (qrest - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
 		p.b.col(2) = qfdot;
 		p.b.col(3) = qf;
 		p.time2hit = T;
-		//cout << "B = \n" << p.b << endl;
+
 		flag = true;
 		update = false;
 	}
@@ -213,48 +199,6 @@ void Optim::run() {
 	}
 	else {
 		t.join();
-	}
-}
-
-/**
- * @brief Load initial solution vector from a file
- */
-void Optim::load_soln_from_file(double x[OPTIM_DIM]) const {
-
-	static bool firsttime = true;
-	using namespace std;
-	static mat init_soln = zeros<mat>(2,OPTIM_DIM);
-	static string homename = getenv("HOME");
-	static string fullname = homename + "/basketball/init_soln.txt";
-	static vec7 qf_left, qf_right, qfd_left, qfd_right;
-	static double T_left, T_right;
-
-	if (firsttime) {
-		init_soln.load(fullname);
-		rowvec soln_left = init_soln.row(1);
-		rowvec soln_right = init_soln.row(0);
-		qf_left = soln_left.head(NDOF_OPT).t();
-		qf_right = soln_right.head(NDOF_OPT).t();
-		qfd_left = soln_left(span(NDOF_OPT,2*NDOF_OPT-1)).t();
-		qfd_right = soln_right(span(NDOF_OPT,2*NDOF_OPT-1)).t();
-		T_left = soln_left(2*NDOF_OPT);
-		T_right = soln_right(2*NDOF_OPT);
-		firsttime = false;
-	}
-
-	if (right_arm) {
-		for (int i = 0; i < NDOF_OPT; i++) {
-			x[i] = qf_right(i);
-			x[i+NDOF_OPT] = qfd_right(i);
-		}
-		x[2*NDOF_OPT] = T_right;
-	}
-	else {
-		for (int i = 0; i < NDOF_OPT; i++) {
-			x[i] = qf_left(i);
-			x[i+NDOF_OPT] = qfd_left(i);
-		}
-		x[2*NDOF_OPT] = T_left;
 	}
 }
 
@@ -304,12 +248,11 @@ void Optim::optim() {
 void Optim::init_last_soln(double x[]) const {
 
 	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF_OPT; i++) {
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
 		x[i] = qf(i);
-		x[i+NDOF_OPT] = qfdot(i);
+		x[i+NDOF_ACTIVE] = qfdot(i);
 	}
-	x[2*NDOF_OPT] = T;
-	//cout << "Initialization from T = " << T << endl;
+	x[2*NDOF_ACTIVE] = T;
 
 }
 
@@ -323,11 +266,11 @@ void Optim::init_last_soln(double x[]) const {
 void Optim::init_rest_soln(double x[]) const {
 
 	// initialize first dof entries to q0
-	for (int i = 0; i < NDOF_OPT; i++) {
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
 		x[i] = qrest(i);
-		x[i+NDOF_OPT] = 0.0;
+		x[i+NDOF_ACTIVE] = 0.0;
 	}
-	x[2*NDOF_OPT] = 0.5;
+	x[2*NDOF_ACTIVE] = 0.5;
 }
 
 /**
@@ -337,13 +280,13 @@ void Optim::init_rest_soln(double x[]) const {
  */
 void Optim::finalize_soln(const double x[], double time_elapsed) {
 
-	if (x[2*NDOF_OPT] > fmax(time_elapsed/1e3,0.05)) {
+	if (x[2*NDOF_ACTIVE] > fmax(time_elapsed/1e3,0.05)) {
 		// initialize first dof entries to q0
-		for (int i = 0; i < NDOF_OPT; i++) {
+		for (int i = 0; i < NDOF_ACTIVE; i++) {
 			qf(i) = x[i];
-			qfdot(i) = x[i+NDOF_OPT];
+			qfdot(i) = x[i+NDOF_ACTIVE];
 		}
-		T = x[2*NDOF_OPT];
+		T = x[2*NDOF_ACTIVE];
 		if (detach)
 			T -= (time_elapsed/1e3);
 		update = true;
@@ -379,12 +322,12 @@ double Optim::test_soln(const double x[]) const {
 		print_optim_vec(x);
 		printf("f = %.2f\n",cost);
 		if (touch)
-			printf("Touch constraint violation: [%.2f]\n",kin_violation[0]);
+			printf("Touch constraint violation: [%.2f, %.2f]\n",kin_violation[0], kin_violation[1]);
 		else
-			printf("Hit constraint violation: [%.2f %.2f]\n", kin_violation[0], kin_violation[1]);
+			printf("Hit constraint violation: [%.2f %.2f %.2f]\n", kin_violation[0], kin_violation[1], kin_violation[2]);
 		for (int i = 0; i < INEQ_CONSTR_DIM; i++) {
-			if (lim_violation[i] > 0.0)
-				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF_OPT + 1);
+			if (lim_violation[i] > 0.01)
+				printf("Joint limit violated by %.2f on joint %d\n", lim_violation[i], i % NDOF_ACTIVE + 1);
 		}
 	}
 	max_acc_violation = calc_max_acc_violation(x,q0,q0dot);
@@ -400,14 +343,14 @@ double Optim::test_soln(const double x[]) const {
  */
 static double costfunc(unsigned n, const double *x, double *grad, void *my_func_params) {
 
-	thread_local double a1[NDOF_OPT];
-	thread_local double a2[NDOF_OPT];
-	double T = x[2*NDOF_OPT];
+	thread_local double a1[NDOF_ACTIVE];
+	thread_local double a2[NDOF_ACTIVE];
+	double T = x[2*NDOF_ACTIVE];
 
 	if (grad) {
 		thread_local double h = 1e-6;
 		thread_local double val_plus, val_minus;
-		thread_local double xx[2*NDOF_OPT+1];
+		thread_local double xx[2*NDOF_ACTIVE+1];
 		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
 		for (unsigned i = 0; i < n; i++) {
@@ -425,8 +368,8 @@ static double costfunc(unsigned n, const double *x, double *grad, void *my_func_
 	// calculate the polynomial coeffs which are used in the cost calculation
 	calc_strike_poly_coeff(opt->q0,opt->q0dot,x,a1,a2);
 
-	return T * (3*T*T*inner_prod(NDOF_OPT,a1,a1) +
-			3*T*inner_prod(NDOF_OPT,a1,a2) + inner_prod(NDOF_OPT,a2,a2));
+	return T * (3*T*T*inner_prod(NDOF_ACTIVE,a1,a1) +
+			3*T*inner_prod(NDOF_ACTIVE,a1,a2) + inner_prod(NDOF_ACTIVE,a2,a2));
 }
 
 /*
@@ -437,9 +380,9 @@ static void touch_constr(unsigned m, double *result, unsigned n,
 
 	thread_local vec3 ball_centre_pos, ball_centre_vel;
 	thread_local vec3 pos_right, pos_left;
-	thread_local double qf[NDOF_OPT];
-	double T = x[2*NDOF_OPT];
-	double diff_norm = 0.0;
+	thread_local double qf[NDOF_ACTIVE];
+	double T = x[2*NDOF_ACTIVE];
+	double diff_right, diff_left;
 
 	Optim *opt = (Optim*) my_function_data;
 	optim_kin_params* data = opt->param_des;
@@ -447,7 +390,7 @@ static void touch_constr(unsigned m, double *result, unsigned n,
 	if (grad) {
 		thread_local double h = 1e-6;
 		thread_local double res_plus[EQ_TOUCH_CONSTR_DIM], res_minus[EQ_TOUCH_CONSTR_DIM];
-		thread_local double xx[2*NDOF_OPT+1];
+		thread_local double xx[2*NDOF_ACTIVE+1];
 		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
 		for (unsigned i = 0; i < n; i++) {
@@ -465,20 +408,19 @@ static void touch_constr(unsigned m, double *result, unsigned n,
 	first_order_hold(data,T,ball_centre_pos,ball_centre_vel);
 
 	// extract state information from optimization variables
-	for (int i = 0; i < NDOF_OPT; i++) {
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
 		qf[i] = x[i];
 	}
 
 	// compute the actual racket pos,vel and normal
-	calc_cart_pos(data->basec, data->baseo, opt->active_dofs,qf,pos_left,pos_right);
+	calc_cart_pos(data->basec, data->baseo, active_dofs,qf,pos_left,pos_right);
 
 	// deviations from the desired racket frame
-	if (opt->right_arm)
-		diff_norm = norm(pos_right - ball_centre_pos);
-	else
-		diff_norm = norm(pos_left - ball_centre_pos);
+	diff_right = norm(pos_right - ball_centre_pos);
+	diff_left = norm(pos_left - ball_centre_pos);
 
-	result[0] = diff_norm - opt->ballparams.radius;
+	result[0] = diff_left - (opt->ballparams.radius - PUSH_EQ_CONSTR);
+	result[1] = diff_right - (opt->ballparams.radius - PUSH_EQ_CONSTR);
 }
 
 /*
@@ -489,9 +431,9 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 
 	thread_local vec3 ball_pos, ball_vel;
 	thread_local vec3 pos_right, pos_left, vel_right, vel_left;
-	thread_local double qf[NDOF_OPT], qfdot[NDOF_OPT];
-	double T = x[2*NDOF_OPT];
-	double diff_norm = 0.0;
+	thread_local double qf[NDOF_ACTIVE], qfdot[NDOF_ACTIVE];
+	double T = x[2*NDOF_ACTIVE];
+	double diff_left, diff_right;
 
 	Optim *opt = (Optim*) my_function_data;
 	optim_kin_params* data = opt->param_des;
@@ -499,7 +441,7 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 	if (grad) {
 		thread_local double h = 1e-6;
 		thread_local double res_plus[EQ_HIT_CONSTR_DIM], res_minus[EQ_HIT_CONSTR_DIM];
-		thread_local double xx[2*NDOF_OPT+1];
+		thread_local double xx[2*NDOF_ACTIVE+1];
 		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
 		for (unsigned i = 0; i < n; i++) {
@@ -517,13 +459,13 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 	first_order_hold(data,T,ball_pos,ball_vel);
 
 	// extract state information from optimization variables
-	for (int i = 0; i < NDOF_OPT; i++) {
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
 		qf[i] = x[i];
-		qfdot[i] = x[i+NDOF_OPT];
+		qfdot[i] = x[i+NDOF_ACTIVE];
 	}
 
 	// compute the actual racket pos,vel and normal
-	calc_cart_pos_and_vel(data->basec, data->baseo, opt->active_dofs, qf,qfdot,pos_left,pos_right,vel_left,vel_right);
+	calc_cart_pos_and_vel(data->basec, data->baseo, active_dofs, qf,qfdot,pos_left,pos_right,vel_left,vel_right);
 	calc_angle_from_ball(ball_pos,ball_vel,opt->ballparams);
 
 	/*cout << "BALL VEL: " << ball_vel.t();
@@ -531,27 +473,21 @@ static void hit_constr(unsigned m, double *result, unsigned n,
 	cout << "RIGHT VEL " << vel_right.t();*/
 
 	// deviations from the desired racket frame
-	if (opt->right_arm) {
-		diff_norm = norm(pos_right - ball_pos);
-		// change velocities
-		ball_vel = -ball_vel + 2*vel_right;
-		// change string angle velocity
-		opt->ballparams.theta_dot = -ball_vel(Y) / ((opt->ballparams.string_len + opt->ballparams.radius)
+	diff_right = norm(pos_right - ball_pos);
+	diff_left = norm(pos_left - ball_pos);
+	// change velocities
+	ball_vel = -ball_vel + 2*(vel_right + vel_left);
+	// change string angle velocity
+	opt->ballparams.theta_dot = -ball_vel(Y) / ((opt->ballparams.string_len + opt->ballparams.radius)
 				                     * cos(opt->ballparams.theta));
-	}
-	else {
-		diff_norm = norm(pos_left - ball_pos);
-		// change velocities
-		ball_vel = -opt->ballparams.restitution * ball_vel + (1 + opt->ballparams.restitution)*vel_left;
-		// change string angle velocity
-		opt->ballparams.theta_dot = -ball_vel(Y) / ((opt->ballparams.string_len + opt->ballparams.radius)
-				                    * cos(opt->ballparams.theta));
-	}
+
 	/*cout << "THETA POS: " << opt->ballparams.theta << endl;
 	cout << "THETA VEL: " << opt->ballparams.theta_dot;
 	cout << endl;*/
-	result[0] = diff_norm - opt->ballparams.radius;
-	result[1] = opt->ballparams.theta_dot - opt->ballparams.theta_dot_des;
+	result[0] = diff_left - (opt->ballparams.radius - PUSH_EQ_CONSTR);
+	result[1] = diff_right - (opt->ballparams.radius - PUSH_EQ_CONSTR);
+	result[2] = opt->ballparams.theta_dot - opt->ballparams.theta_dot_des;
+	result[3] = vel_right(X) + vel_left(X);
 }
 
 /*
@@ -593,15 +529,15 @@ static void first_order_hold(const optim_kin_params* data, const double T, vec3 
 void joint_limits_ineq_constr(unsigned m, double *result,
 		unsigned n, const double *x, double *grad, void *my_func_params) {
 
-	thread_local double a1[NDOF_OPT];
-	thread_local double a2[NDOF_OPT];
-	thread_local double a1ret[NDOF_OPT]; // coefficients for the returning polynomials
-	thread_local double a2ret[NDOF_OPT];
-	thread_local double joint_strike_max_cand[NDOF_OPT];
-	thread_local double joint_strike_min_cand[NDOF_OPT];
-	thread_local double joint_return_max_cand[NDOF_OPT];
-	thread_local double joint_return_min_cand[NDOF_OPT];
-	thread_local vec qdot_rest = zeros<vec>(NDOF_OPT);
+	thread_local double a1[NDOF_ACTIVE];
+	thread_local double a2[NDOF_ACTIVE];
+	thread_local double a1ret[NDOF_ACTIVE]; // coefficients for the returning polynomials
+	thread_local double a2ret[NDOF_ACTIVE];
+	thread_local double joint_strike_max_cand[NDOF_ACTIVE];
+	thread_local double joint_strike_min_cand[NDOF_ACTIVE];
+	thread_local double joint_return_max_cand[NDOF_ACTIVE];
+	thread_local double joint_return_min_cand[NDOF_ACTIVE];
+	thread_local vec qdot_rest = zeros<vec>(NDOF_ACTIVE);
 
 	Optim *opt = (Optim*) my_func_params;
 	double Tret = opt->time2return;
@@ -609,7 +545,7 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 	if (grad) {
 		thread_local double h = 1e-6;
 		thread_local double res_plus[INEQ_CONSTR_DIM], res_minus[INEQ_CONSTR_DIM];
-		thread_local double xx[2*NDOF_OPT+1];
+		thread_local double xx[2*NDOF_ACTIVE+1];
 		for (unsigned i = 0; i < n; i++)
 			xx[i] = x[i];
 		for (unsigned i = 0; i < n; i++) {
@@ -627,16 +563,16 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 	calc_strike_poly_coeff(opt->q0,opt->q0dot,x,a1,a2);
 	calc_return_poly_coeff(opt->qrest,qdot_rest,x,Tret,a1ret,a2ret);
 	// calculate the candidate extrema both for strike and return
-	calc_strike_extrema_cand(a1,a2,x[2*NDOF_OPT],opt->q0,opt->q0dot,
+	calc_strike_extrema_cand(a1,a2,x[2*NDOF_ACTIVE],opt->q0,opt->q0dot,
 			joint_strike_max_cand,joint_strike_min_cand);
 	calc_return_extrema_cand(a1ret,a2ret,x,Tret,joint_return_max_cand,joint_return_min_cand);
 
 	/* deviations from joint min and max */
-	for (int i = 0; i < NDOF_OPT; i++) {
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
 		result[i] = joint_strike_max_cand[i] - opt->ub(i);
-		result[i+NDOF_OPT] = opt->lb(i) - joint_strike_min_cand[i];
-		result[i+2*NDOF_OPT] = joint_return_max_cand[i] - opt->ub(i);
-		result[i+3*NDOF_OPT] = opt->lb(i) - joint_return_min_cand[i];
+		result[i+NDOF_ACTIVE] = opt->lb(i) - joint_strike_min_cand[i];
+		result[i+2*NDOF_ACTIVE] = joint_return_max_cand[i] - opt->ub(i);
+		result[i+3*NDOF_ACTIVE] = opt->lb(i) - joint_return_min_cand[i];
 		//printf("%f %f %f %f\n", result[i],result[i+DOF],result[i+2*DOF],result[i+3*DOF]);
 	}
 
@@ -649,11 +585,11 @@ void joint_limits_ineq_constr(unsigned m, double *result,
 void calc_strike_poly_coeff(const vec & q0, const vec & q0dot, const double *x,
 		                    double *a1, double *a2) {
 
-	double T = x[2*NDOF_OPT];
+	double T = x[2*NDOF_ACTIVE];
 
-	for (int i = 0; i < NDOF_OPT; i++) {
-		a1[i] = (2/pow(T,3))*(q0(i)-x[i]) + (1/(T*T))*(q0dot(i) + x[i+NDOF_OPT]);
-		a2[i] = (3/(T*T))*(x[i]-q0(i)) - (1/T)*(x[i+NDOF_OPT] + 2*q0dot(i));
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		a1[i] = (2/pow(T,3))*(q0(i)-x[i]) + (1/(T*T))*(q0dot(i) + x[i+NDOF_ACTIVE]);
+		a2[i] = (3/(T*T))*(x[i]-q0(i)) - (1/T)*(x[i+NDOF_ACTIVE] + 2*q0dot(i));
 	}
 
 	return;
@@ -668,9 +604,9 @@ void calc_return_poly_coeff(const vec & qrest, const vec & qrest_dot,
 		                    const double *x, const double T,
 		                    double *a1, double *a2) {
 
-	for (int i = 0; i < NDOF_OPT; i++) {
-		a1[i] = (2/pow(T,3))*(x[i]-qrest(i)) + (1/(T*T))*(qrest_dot(i) + x[i+NDOF_OPT]);
-		a2[i] = (3/(T*T))*(qrest(i)-x[i]) - (1/T)*(2*x[i+NDOF_OPT] + qrest_dot(i));
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		a1[i] = (2/pow(T,3))*(x[i]-qrest(i)) + (1/(T*T))*(qrest_dot(i) + x[i+NDOF_ACTIVE]);
+		a2[i] = (3/(T*T))*(qrest(i)-x[i]) - (1/T)*(2*x[i+NDOF_ACTIVE] + qrest_dot(i));
 	}
 
 }
@@ -687,7 +623,7 @@ void calc_strike_extrema_cand(const double *a1, const double *a2, const double T
 
 	thread_local double cand1, cand2;
 
-	for (int i = 0; i < NDOF_OPT; i++) {
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
 		cand1 = fmin(T,fmax(0,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*q0dot(i)))/(3*a1[i])));
 		cand2 =  fmin(T,fmax(0,(-a2[i] - sqrt(a2[i]*a2[i] - 3*a1[i]*q0dot(i)))/(3*a1[i])));
 		cand1 = a1[i]*pow(cand1,3) + a2[i]*pow(cand1,2) + q0dot(i)*cand1 + q0(i);
@@ -709,11 +645,11 @@ void calc_return_extrema_cand(const double *a1, const double *a2,
 
 	thread_local double cand1, cand2;
 
-	for (int i = 0; i < NDOF_OPT; i++) {
-		cand1 = fmin(Tret, fmax(0,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+NDOF_OPT]))/(3*a1[i])));
-		cand2 =  fmin(Tret, fmax(0,(-a2[i] - sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+NDOF_OPT]))/(3*a1[i])));
-		cand1 = a1[i]*pow(cand1,3) + a2[i]*pow(cand1,2) + x[i+NDOF_OPT]*cand1 + x[i];
-		cand2 = a1[i]*pow(cand2,3) + a2[i]*pow(cand2,2) + x[i+NDOF_OPT]*cand2 + x[i];
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		cand1 = fmin(Tret, fmax(0,(-a2[i] + sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+NDOF_ACTIVE]))/(3*a1[i])));
+		cand2 =  fmin(Tret, fmax(0,(-a2[i] - sqrt(a2[i]*a2[i] - 3*a1[i]*x[i+NDOF_ACTIVE]))/(3*a1[i])));
+		cand1 = a1[i]*pow(cand1,3) + a2[i]*pow(cand1,2) + x[i+NDOF_ACTIVE]*cand1 + x[i];
+		cand2 = a1[i]*pow(cand2,3) + a2[i]*pow(cand2,2) + x[i+NDOF_ACTIVE]*cand2 + x[i];
 		joint_max_cand[i] = fmax(cand1,cand2);
 		joint_min_cand[i] = fmin(cand1,cand2);
 	}
@@ -727,16 +663,16 @@ void calc_return_extrema_cand(const double *a1, const double *a2,
  *
  * Returns the max acc
  */
-double calc_max_acc_violation(const double x[2*NDOF_OPT+1], const vec & q0, const vec & q0dot) {
+double calc_max_acc_violation(const double x[2*NDOF_ACTIVE+1], const vec & q0, const vec & q0dot) {
 
-	double T = x[2*NDOF_OPT];
-	double a1[NDOF_OPT], a2[NDOF_OPT];
+	double T = x[2*NDOF_ACTIVE];
+	double a1[NDOF_ACTIVE], a2[NDOF_ACTIVE];
 	double acc_abs_max = 0.0;
 	double acc_max_cand;
 
 	calc_strike_poly_coeff(q0,q0dot,x,a1,a2); // get a1,a2 out
 
-	for (int i = 0; i < NDOF_OPT; i++) {
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
 		acc_max_cand = fmax(fabs(6*a1[i]*T + a2[i]),fabs(a2[i]));
 		//printf("qdd_max[%d] = %f\n", i, acc_max_cand);
 		if (acc_max_cand > MAX_ACC && acc_max_cand > acc_abs_max) {
@@ -810,17 +746,17 @@ static bool check_optim_result(const int res) {
  */
 void set_bounds(const uvec & active_dofs, const double SLACK, const double Tmax, vec & lb, vec & ub) {
 
-	vec lb_full = zeros<vec>(NDOF);
-	vec ub_full = zeros<vec>(NDOF);
+	vec lb_full = zeros<vec>(NDOF_ACTIVE);
+	vec ub_full = zeros<vec>(NDOF_ACTIVE);
 	read_joint_limits(lb_full,ub_full);
 	// lower bounds and upper bounds for qf are the joint limits
-	for (int i = 0; i < NDOF_OPT; i++) {
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
 		ub(i) = ub_full(active_dofs(i)) - SLACK;
 		lb(i) = lb_full(active_dofs(i)) + SLACK;
-		ub(NDOF_OPT + i) = MAX_VEL;
-		lb(NDOF_OPT + i) = -MAX_VEL;
+		ub(NDOF_ACTIVE + i) = MAX_VEL;
+		lb(NDOF_ACTIVE + i) = -MAX_VEL;
 	}
 	// constraints on final time
-	ub(2*NDOF_OPT) = Tmax;
-	lb(2*NDOF_OPT) = 0.01;
+	ub(2*NDOF_ACTIVE) = Tmax;
+	lb(2*NDOF_ACTIVE) = 0.01;
 }

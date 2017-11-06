@@ -52,15 +52,10 @@ Player::Player(const vec & q0, EKF & filter_, player_flags & flags)
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
 	//load_lookup_table(lookup_table);
 
-	opt_left = new Optim(q0.head(7), false, pflags.touch);
-	opt_left->set_return_time(pflags.time2return);
-	opt_left->set_verbose(pflags.verbosity > 1);
-	opt_left->set_detach(pflags.detach);
-
-	opt_right = new Optim(q0.tail(7), true, pflags.touch);
-	opt_right->set_return_time(pflags.time2return);
-	opt_right->set_verbose(pflags.verbosity > 1);
-	opt_right->set_detach(pflags.detach);
+	opt = new Optim(q0, pflags.touch);
+	opt->set_return_time(pflags.time2return);
+	opt->set_verbose(pflags.verbosity > 1);
+	opt->set_detach(pflags.detach);
 }
 
 /*
@@ -71,8 +66,7 @@ Player::Player(const vec & q0, EKF & filter_, player_flags & flags)
  */
 Player::~Player() {
 
-	delete opt_left;
-	delete opt_right;
+	delete opt;
 }
 
 /**
@@ -183,7 +177,10 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 	estimate_ball_state(ball_obs);
 
-	optim_param(qact);
+	if (pflags.load_soln)
+		load_soln_from_file(qact);
+	else
+		optim_param(qact);
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
@@ -207,7 +204,10 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 	// resetting legal ball detecting to AWAITING state
 	filter.set_prior(ballstate,0.01*eye<mat>(6,6));
 
-	optim_param(qact);
+	if (pflags.load_soln)
+		load_soln_from_file(qact);
+	else
+		optim_param(qact);
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
@@ -236,18 +236,9 @@ void Player::optim_param(const joint & qact) {
 		kinematics_params.basec = pflags.basec;
 		kinematics_params.baseo = pflags.baseo;
 
-		if (pflags.optim_type == LEFT_HAND_OPT || pflags.optim_type == BOTH_HAND_OPT) {
-			opt_left->set_kinematics_params(&kinematics_params);
-			opt_left->update_init_state(qact);
-			//opt_left->set_verbose(true);
-			opt_left->run();
-		}
-		if (pflags.optim_type == RIGHT_HAND_OPT || pflags.optim_type == BOTH_HAND_OPT) {
-			opt_right->set_kinematics_params(&kinematics_params);
-			opt_right->update_init_state(qact);
-			//opt_right->set_verbose(true);
-			opt_right->run();
-		}
+		opt->set_kinematics_params(&kinematics_params);
+		opt->update_init_state(qact);
+		opt->run();
 	}
 }
 
@@ -261,10 +252,9 @@ bool Player::check_update(const joint & qact) const {
 	bool update = false;
 
 	try {
-		update = !opt_left->check_update() && !opt_left->check_running() &&
-				 !opt_right->check_update() && !opt_right->check_running();
+		update = !opt->check_update() && !opt->check_running();
 		// ball is incoming
-		update = update && (poly_left.t == 0.0) && (poly_right.t == 0); // only once
+		update = update && (poly.t == 0.0); // only once
 	}
 	catch (const std::exception & not_init_error) {
 		update = false;
@@ -285,32 +275,18 @@ bool Player::check_update(const joint & qact) const {
 void Player::calc_next_state(const joint & qact, joint & qdes) {
 
 	// this should be only for MPC?
-	if (opt_right->get_params(qact,poly_right)) {
+	if (opt->get_params(qact,poly)) {
 		if (pflags.verbosity) {
-			std::cout << "Launching/updating movement for RIGHT ARM" << std::endl;
+			std::cout << "Launching/updating movement for BOTH ARMS!" << std::endl;
 		}
-		poly_right.t = DT;
-		opt_right->set_moving(true);
-	}
-
-	// this should be only for MPC?
-	if (opt_left->get_params(qact,poly_left)) {
-		if (pflags.verbosity) {
-			std::cout << "Launching/updating movement for LEFT ARM" << std::endl;
-		}
-		poly_left.t = DT;
-		opt_left->set_moving(true);
+		poly.t = DT;
+		opt->set_moving(true);
 	}
 
 	// make sure we update after optim finished
-	if (poly_left.t > 0.0 ) {
-		if (!update_next_state(q_rest_des.head(NDOF_OPT),pflags.time2return,false,poly_left,qdes)) {
-			opt_left->set_moving(false);
-		}
-	}
-	if (poly_right.t > 0.0 ) {
-		if (!update_next_state(q_rest_des.tail(NDOF_OPT),pflags.time2return,true,poly_right,qdes)) {
-			opt_right->set_moving(false);
+	if (poly.t > 0.0 ) {
+		if (!update_next_state(q_rest_des,pflags.time2return,poly,qdes)) {
+			opt->set_moving(false);
 		}
 	}
 
@@ -329,6 +305,49 @@ void Player::reset_filter(double var_model, double var_noise) {
 	init_ball_state = false;
 	num_obs = 0;
 	t_obs = 0.0;
+}
+
+/**
+ * @brief Load initial solution vector from a file, useful for debugging REAL ROBOT performance
+ *
+ * As opposed to running kinematic optimization repeatedly,
+ * we just load one static solution (hopefully a good one) that we can just
+ * test by executing ONCE.
+ *
+ */
+void Player::load_soln_from_file(const joint & qact) {
+
+	static bool firsttime = true;
+	using namespace std;
+	static mat init_soln = zeros<mat>(5,NDOF_OPT);
+	static string homename = getenv("HOME");
+	static string fullname = homename + "/basketball/init_soln.txt";
+	static vec::fixed<14> qf, qfdot;
+	static vec::fixed<14> qnow, qdnow;
+	static double T;
+	static double time2return = pflags.time2return;
+
+	if (firsttime) {
+		init_soln.load(fullname);
+		qf = join_vert(init_soln.row(0).t(),init_soln.row(2).t());
+		qfdot = join_vert(init_soln.row(1).t(),init_soln.row(3).t());
+		T = init_soln(4,0);
+		firsttime = false;
+		qnow = qact.q;
+		qdnow = qact.qd;
+		poly.a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
+		poly.a.col(1) = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
+		poly.a.col(2) = qdnow;
+		poly.a.col(3) = qnow;
+		poly.b.col(0) = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
+		poly.b.col(1) = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
+		poly.b.col(2) = qfdot;
+		poly.b.col(3) = qf;
+		poly.time2hit = T;
+		poly.t = DT;
+	}
+
+
 }
 
 /**
@@ -396,48 +415,35 @@ void estimate_ball_linear(const mat & observations,
  */
 bool update_next_state(const vec & q_rest_des,
 				   const double time2return,
-				   const bool right_arm,
 				   spline_params & poly,
 				   joint & qdes) {
 	mat a,b;
 	double tbar;
 	bool flag = true;
-	vec7 q, qd, qdd;
 
 	if (poly.t <= poly.time2hit) {
 		a = poly.a;
-		q = a.col(0)*poly.t*poly.t*poly.t + a.col(1)*poly.t*poly.t + a.col(2)*poly.t + a.col(3);
-		qd = 3*a.col(0)*poly.t*poly.t + 2*a.col(1)*poly.t + a.col(2);
-		qdd = 6*a.col(0)*poly.t + 2*a.col(1);
+		qdes.q = a.col(0)*poly.t*poly.t*poly.t + a.col(1)*poly.t*poly.t + a.col(2)*poly.t + a.col(3);
+		qdes.qd = 3*a.col(0)*poly.t*poly.t + 2*a.col(1)*poly.t + a.col(2);
+		qdes.qdd = 6*a.col(0)*poly.t + 2*a.col(1);
 		poly.t += DT;
 		//cout << qdes.q << qdes.qd << qdes.qdd << endl;
 	}
 	else if (poly.t <= poly.time2hit + time2return) {
 		b = poly.b;
 		tbar = poly.t - poly.time2hit;
-		q = b.col(0)*tbar*tbar*tbar + b.col(1)*tbar*tbar + b.col(2)*tbar + b.col(3);
-		qd = 3*b.col(0)*tbar*tbar + 2*b.col(1)*tbar + b.col(2);
-		qdd = 6*b.col(0)*tbar + 2*b.col(1);
+		qdes.q = b.col(0)*tbar*tbar*tbar + b.col(1)*tbar*tbar + b.col(2)*tbar + b.col(3);
+		qdes.qd = 3*b.col(0)*tbar*tbar + 2*b.col(1)*tbar + b.col(2);
+		qdes.qdd = 6*b.col(0)*tbar + 2*b.col(1);
 		poly.t += DT;
 	}
 	else {
 		//printf("Hitting finished!\n");
 		poly.t = 0.0;
 		flag = false;
-		q = q_rest_des;
-		qd = zeros<vec>(NDOF_OPT);
-		qdd = zeros<vec>(NDOF_OPT);
-	}
-
-	if (right_arm) {
-		qdes.q.tail(NDOF_OPT) = q;
-		qdes.qd.tail(NDOF_OPT) = qd;
-		qdes.qdd.tail(NDOF_OPT) = qdd;
-	}
-	else {
-		qdes.q.head(NDOF_OPT) = q;
-		qdes.qd.head(NDOF_OPT) = qd;
-		qdes.qdd.head(NDOF_OPT) = qdd;
+		qdes.q = q_rest_des;
+		qdes.qd = zeros<vec>(NDOF_ACTIVE);
+		qdes.qdd = zeros<vec>(NDOF_ACTIVE);
 	}
 
 	return flag;

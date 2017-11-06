@@ -70,31 +70,6 @@ player_flags options; //!< global structure for setting Player options
 #include "sl_basketball_interface.h"
 
 /**
- * @brief Set optimization type for BASKETBALL movements.
- *
- * @param alg_num Select between three optimization types: LEFT_HAND, RIGHT_HAND, and BOTH_HANDS
- */
-static void set_optim_type(const int opt_num) {
-
-	switch (opt_num) {
-		case 0:
-			std::cout << "Optimizing only LEFT HAND..." << std::endl;
-			options.optim_type = LEFT_HAND_OPT;
-			break;
-		case 1:
-			std::cout << "Optimizing only RIGHT HAND..." << std::endl;
-			options.optim_type = RIGHT_HAND_OPT;
-			break;
-		case 2:
-			std::cout << "Optimizing BOTH HANDS..." << std::endl;
-			options.optim_type = BOTH_HAND_OPT;
-			break;
-		default:
-			options.optim_type = RIGHT_HAND_OPT;
-	}
-}
-
-/**
  * @brief Set algorithm and options to initialize Player with.
  *
  * The global variable flags is set here and
@@ -109,15 +84,14 @@ void load_options() {
 	options.reset = true;
 	string home = std::getenv("HOME");
 	string config_file = home + "/basketball/" + "player.cfg";
-	int optim_type;
 
     try {
 		// Declare a group of options that will be
 		// allowed in config file
 		po::options_description config("Configuration");
 		config.add_options()
-			("hand", po::value<int>(&optim_type)->default_value(0),
-				  "optimization type: LEFT_HAND = 0, RIGHT_HAND = 1, BOTH = 2")
+			("load_soln", po::value<bool>(&options.load_soln)->default_value(false),
+				  "load solution vector from file if true")
 			("touch", po::value<bool>(&options.touch)->default_value(true),
 				  "only touch the ball if TRUE, hit the ball with des. velocity if FALSE")
 			("verbose", po::value<int>(&options.verbosity)->default_value(1),
@@ -143,7 +117,6 @@ void load_options() {
     catch(exception& e) {
         cout << e.what() << "\n";
     }
-    set_optim_type(optim_type);
     options.detach = true; // always detached in SL/REAL ROBOT!
 }
 

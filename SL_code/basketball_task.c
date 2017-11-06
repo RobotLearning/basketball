@@ -13,6 +13,7 @@
 #include "SL_collect_data.h"
 #include "SL_dynamics.h"
 #include "SL_tasks.h"
+#include "SL_integrate.h"
 
 /* Internal variables */
 static double start_time;
@@ -52,6 +53,7 @@ static int update_ball_obs(void) {
 	static double env_vars[6];
 
 	if (simulation) {
+		update_base(&base_state,&base_orient);
 		integrate_ball_state(dt, cart_state, ball_state, env_vars);
 		sendUserGraphics("basketball_pendulum",env_vars,6*sizeof(double));
 
@@ -78,6 +80,8 @@ static int update_ball_obs(void) {
 static int init_basketball_task(void) {
 
 	int i, ready;
+	//static double zeroGain[N_DOFS];
+
 	bzero((char *)&(ball_obs), sizeof(ball_obs));
 	bzero((char *)&(sim_ball_state), sizeof(sim_ball_state));
 
@@ -106,6 +110,8 @@ static int init_basketball_task(void) {
 		return FALSE;
 
 	start_time = servo_time;
+	freezeBase(1);
+	//changePIDGains(zeroGain, zeroGain, zeroGain);
 	return TRUE;
 }
 
@@ -134,8 +140,8 @@ static int run_basketball_task(void) {
 	play(joint_state, &ball_obs, joint_des_state); // basketball lib generates trajectories for touching the ball
 
 	check_range(joint_des_state); // Check if the trajectory is safe
-	//SL_InverseDynamics(NULL, joint_des_state, endeff); // Feedforward control
-	SL_InverseDynamics(joint_state, joint_des_state, endeff);
+	SL_InverseDynamics(NULL, joint_des_state, endeff); // Feedforward control
+	//SL_InverseDynamics(joint_state, joint_des_state, endeff);
 
 	return TRUE;
 }
