@@ -80,6 +80,8 @@ static int update_ball_obs(void) {
 static int init_basketball_task(void) {
 
 	int i, ready;
+	//static double zeroGain[N_DOFS];
+
 	bzero((char *)&(ball_obs), sizeof(ball_obs));
 	bzero((char *)&(sim_ball_state), sizeof(sim_ball_state));
 
@@ -109,6 +111,7 @@ static int init_basketball_task(void) {
 
 	start_time = servo_time;
 	freezeBase(1);
+	//changePIDGains(zeroGain, zeroGain, zeroGain);
 	return TRUE;
 }
 
@@ -137,8 +140,8 @@ static int run_basketball_task(void) {
 	play(joint_state, &ball_obs, joint_des_state); // basketball lib generates trajectories for touching the ball
 
 	check_range(joint_des_state); // Check if the trajectory is safe
-	//SL_InverseDynamics(NULL, joint_des_state, endeff); // Feedforward control
-	SL_InverseDynamics(joint_state, joint_des_state, endeff);
+	SL_InverseDynamics(NULL, joint_des_state, endeff); // Feedforward control
+	//SL_InverseDynamics(joint_state, joint_des_state, endeff);
 
 	return TRUE;
 }

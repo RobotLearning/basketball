@@ -177,7 +177,10 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 	estimate_ball_state(ball_obs);
 
-	optim_param(qact);
+	if (pflags.load_soln)
+		load_soln_from_file(qact);
+	else
+		optim_param(qact);
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
@@ -201,7 +204,10 @@ void Player::cheat(const joint & qact, const vec6 & ballstate, joint & qdes) {
 	// resetting legal ball detecting to AWAITING state
 	filter.set_prior(ballstate,0.01*eye<mat>(6,6));
 
-	optim_param(qact);
+	if (pflags.load_soln)
+		load_soln_from_file(qact);
+	else
+		optim_param(qact);
 
 	// generate movement or calculate next desired step
 	calc_next_state(qact, qdes);
@@ -299,6 +305,49 @@ void Player::reset_filter(double var_model, double var_noise) {
 	init_ball_state = false;
 	num_obs = 0;
 	t_obs = 0.0;
+}
+
+/**
+ * @brief Load initial solution vector from a file, useful for debugging REAL ROBOT performance
+ *
+ * As opposed to running kinematic optimization repeatedly,
+ * we just load one static solution (hopefully a good one) that we can just
+ * test by executing ONCE.
+ *
+ */
+void Player::load_soln_from_file(const joint & qact) {
+
+	static bool firsttime = true;
+	using namespace std;
+	static mat init_soln = zeros<mat>(5,NDOF_OPT);
+	static string homename = getenv("HOME");
+	static string fullname = homename + "/basketball/init_soln.txt";
+	static vec::fixed<14> qf, qfdot;
+	static vec::fixed<14> qnow, qdnow;
+	static double T;
+	static double time2return = pflags.time2return;
+
+	if (firsttime) {
+		init_soln.load(fullname);
+		qf = join_vert(init_soln.row(0).t(),init_soln.row(2).t());
+		qfdot = join_vert(init_soln.row(1).t(),init_soln.row(3).t());
+		T = init_soln(4,0);
+		firsttime = false;
+		qnow = qact.q;
+		qdnow = qact.qd;
+		poly.a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);
+		poly.a.col(1) = 3.0 * (qf - qnow) / pow(T,2) - (qfdot + 2.0*qdnow) / T;
+		poly.a.col(2) = qdnow;
+		poly.a.col(3) = qnow;
+		poly.b.col(0) = 2.0 * (qf - q_rest_des) / pow(time2return,3) + (qfdot) / pow(time2return,2);
+		poly.b.col(1) = 3.0 * (q_rest_des - qf) / pow(time2return,2) - (2.0*qfdot) / time2return;
+		poly.b.col(2) = qfdot;
+		poly.b.col(3) = qf;
+		poly.time2hit = T;
+		poly.t = DT;
+	}
+
+
 }
 
 /**

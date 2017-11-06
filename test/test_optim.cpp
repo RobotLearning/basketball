@@ -196,7 +196,7 @@ BOOST_DATA_TEST_CASE(test_player, data::xrange(2), touch_idx) {
 	flags.detach = false;
 	flags.verbosity = 2;
 	flags.touch = !touch_idx;
-	Ball ball = Ball();
+	Ball ball = Ball(); // ball config file will be loaded!
 	Player robot = Player(qact.q,filter,flags);
 	mat66 P; P.eye();
 	mat xdes = zeros<mat>(2*NCART,N);

@@ -82,5 +82,4 @@ robotInitSurfY = robot_right_init(2) + 0.02 * robotInitMeshY;
 robotInitSurfZ = robot_right_init(3) + 0.02 * robotInitMeshZ;
 h = surf(robotInitSurfX,robotInitSurfY,robotInitSurfZ);
 
-legend('left des', 'left act', 'right des', 'right act', ...
-       'left init pos', 'right init pos');
+legend('left des', 'left act', 'right des', 'right act');

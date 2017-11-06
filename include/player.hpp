@@ -20,6 +20,7 @@ using namespace arma;
  * @brief Options passed to Player class (algorithm, saving, corrections, etc.).
  */
 struct player_flags {
+	bool load_soln = false; //!< do not run optimization, load one solution vector and execute
 	bool detach = false; //!< detach optimizations in another thread
 	bool reset = true; //!< reinitializing player class
 	bool save = false; //!< saving ball/robot data
@@ -63,6 +64,8 @@ private:
 
 	// optimization for different players
 	void optim_param(const joint & qact); // run optimizer for Focused player
+	// do not run optimizer just load solution once
+	void load_soln_from_file(const joint & qact);
 
 	void calc_opt_params(const joint & qact);
 	bool check_update(const joint & qact) const; // flag for (re)running optimization

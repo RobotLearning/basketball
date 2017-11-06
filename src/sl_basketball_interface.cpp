@@ -90,6 +90,8 @@ void load_options() {
 		// allowed in config file
 		po::options_description config("Configuration");
 		config.add_options()
+			("load_soln", po::value<bool>(&options.load_soln)->default_value(false),
+				  "load solution vector from file if true")
 			("touch", po::value<bool>(&options.touch)->default_value(true),
 				  "only touch the ball if TRUE, hit the ball with des. velocity if FALSE")
 			("verbose", po::value<int>(&options.verbosity)->default_value(1),
