@@ -109,6 +109,7 @@ private:
 
 	void init_last_soln(double *x) const;
 	void init_rest_soln(double *x) const;
+	void init_soln_from_file(double *x) const;
 	double test_soln(const double *x) const;
 	void finalize_soln(const double *x, const double dt);
 	void optim_rest_posture(vec & q_rest_des);

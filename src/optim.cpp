@@ -211,8 +211,8 @@ void Optim::optim() {
 	running = true;
 	double x[OPTIM_DIM];
 
-	init_rest_soln(x);
-	//load_soln_from_file(x);
+	//init_rest_soln(x);
+	init_soln_from_file(x);
 
 	double init_time = get_time();
 	double past_time = 0.0;
@@ -255,6 +255,41 @@ void Optim::init_last_soln(double x[]) const {
 	x[2*NDOF_ACTIVE] = T;
 
 }
+
+/**
+ * @brief Load initial solution vector from a file, useful for debugging REAL ROBOT performance
+ *
+ * As opposed to running kinematic optimization repeatedly,
+ * we just load one static solution (hopefully a good one) that we can just
+ * test by executing ONCE.
+ *
+ */
+void Optim::init_soln_from_file(double *x) const {
+
+	static bool firsttime = true;
+	using namespace std;
+	static mat init_soln = zeros<mat>(5,NDOF_OPT);
+	static string homename = getenv("HOME");
+	static string fullname = homename + "/basketball/init_soln.txt";
+	static vec::fixed<14> qf, qfdot;
+	static vec::fixed<14> qnow, qdnow;
+	static double T;
+
+	if (firsttime) {
+		init_soln.load(fullname);
+		qf = join_vert(init_soln.row(0).t(),init_soln.row(2).t());
+		qfdot = join_vert(init_soln.row(1).t(),init_soln.row(3).t());
+		T = init_soln(4,0);
+		firsttime = false;
+	}
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		x[i] = qf(i);
+		x[i+NDOF_ACTIVE] = qfdot(i);
+	}
+	x[2*NDOF_ACTIVE] = T;
+
+}
+
 
 /**
  * @brief Initialize the optim params to fixed resting posture.
