@@ -57,12 +57,13 @@ struct SL_quat { /*!< Quaternion orientation */
 };
 
 /**
- * @brief Vision blob info coming from SL (after calibration).
+ * @brief Vision blob info coming from SL (before calibration).
  *
  */
 struct blob_state {
 	int status; //!< was ball detected reliably in cameras
-	double pos[NCART]; //!< ball center cartesian positions from cameras 1 and 2(after calibration)
+	double raw2d[4]; //!< raw 2D pixel values from the cameras 1 and 2
+	double pos[NCART]; //!< ball center cartesian positions detected
 };
 
 player_flags options; //!< global structure for setting Player options
@@ -96,8 +97,10 @@ void load_options() {
 				  "only touch the ball if TRUE, hit the ball with des. velocity if FALSE")
 			("verbose", po::value<int>(&options.verbosity)->default_value(1),
 		         "verbosity level")
-		    ("save_data", po::value<bool>(&options.save)->default_value(false),
-		         "saving robot/ball data")
+		    ("save_joint_data", po::value<bool>(&options.save_joint)->default_value(false),
+		         "saving robot joint data")
+			("save_calibration_data", po::value<bool>(&options.save_calibration)->default_value(false),
+				 		         "saving calibration data")
 			("time2return", po::value<double>(&options.time2return),
 						 "time to return to start posture")
 		    ("min_obs", po::value<int>(&options.min_obs), "minimum obs to start filter")
@@ -195,6 +198,7 @@ void play(const SL_Jstate joint_state[NDOF+1],
 		fuse_blobs(blobs,ball_obs);
 		robot->play(qact,ball_obs,qdes);
 		save_joint_data(joint_state,joint_des_state);
+		save_calibration_data(joint_state,blobs);
 		save_cartesian_data(joint_state,joint_des_state);
 	}
 
@@ -288,11 +292,51 @@ static void save_joint_data(const SL_Jstate joint_state[NDOF+1],
 		joint_des(i+NDOF_ACTIVE) = joint_des_state[active_dofs(i)+1].thd;
 	}
 
-	if (options.save && norm(joint_act.tail(NDOF_ACTIVE)) > 0.0) {
+	if (options.save_joint && norm(joint_act.tail(NDOF_ACTIVE)) > 0.0) {
 		if (!stream.is_open()) {
 			stream.open(joint_file,std::ofstream::out | std::ofstream::app);
 		}
 		stream << join_vert(joint_des,joint_act).t();
+	}
+	else {
+		stream.close();
+	}
+}
+
+/**
+ * @brief Saves blob data and cartesian values of the arm endeffectors for calibration.
+ *
+ * Blob data consists of 2-2D pixel values from cameras and the ball is attached to the moving left arm.
+ *
+ */
+static void save_calibration_data(const SL_Jstate joint_state[NDOF+1], const blob_state *blobs) {
+
+	static std::ofstream stream;
+	static const std::string home = std::getenv("HOME");
+	static const std::string blob_file = home + "/basketball/data/blobs.txt";
+	static vec joint_act_pos = zeros<vec>(NDOF_ACTIVE);
+	static vec joint_act_vel = zeros<vec>(NDOF_ACTIVE);
+	static vec3 pos_left, pos_right;
+	static bool firsttime = true;
+	vec4 blob_vec(blobs->raw2d);
+
+	if (firsttime) {
+		stream.open(blob_file,std::ofstream::out);
+		firsttime = false;
+	}
+
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		joint_act_pos(i) = joint_state[active_dofs(i)+1].th;
+		joint_act_vel(i) = joint_state[active_dofs(i)+1].thd;
+
+	}
+	calc_cart_pos(options.basec,options.baseo,active_dofs, joint_act_pos.memptr(), pos_left, pos_right);
+
+	if (options.save_calibration && norm(joint_act_vel) > 0.0) {
+		if (!stream.is_open()) {
+			stream.open(blob_file,std::ofstream::out | std::ofstream::app);
+		}
+		stream << join_horiz(pos_left.t(), blob_vec.t());
 	}
 	else {
 		stream.close();
@@ -331,7 +375,7 @@ static void save_cartesian_data(const SL_Cstate robot_state[NENDEFF+1]) {
 		cart_act(i+3*NCART) = robot_state[RIGHT_HAND].xd[i+1];
 	}
 
-	if (options.save) {
+	if (options.save_cart) {
 		if (!stream.is_open()) {
 			stream.open(cart_file,std::ofstream::out | std::ofstream::app);
 		}
@@ -380,7 +424,7 @@ static void save_cartesian_data(const SL_Jstate joint_state[NDOF+1],
 	calc_cart_pos_and_vel(options.basec, options.baseo, active_dofs,qact,hands);
 	cart_act = hands.print();
 
-	if (options.save && norm(cart_act.tail(2*NCART)) > 0.0) {
+	if (options.save_cart && norm(cart_act.tail(2*NCART)) > 0.0) {
 		if (!stream.is_open()) {
 			stream.open(cart_file,std::ofstream::out | std::ofstream::app);
 		}
