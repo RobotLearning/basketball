@@ -336,6 +336,7 @@ static void save_calibration_data(const SL_Jstate joint_state[NDOF+1], const blo
 		if (!stream.is_open()) {
 			stream.open(blob_file,std::ofstream::out | std::ofstream::app);
 		}
+		stream << blobs->status;
 		stream << join_horiz(pos_left.t(), blob_vec.t());
 	}
 	else {
