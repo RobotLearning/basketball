@@ -447,7 +447,7 @@ static void touch_constr(unsigned m, double *result, unsigned n,
 		qf[i] = x[i];
 	}
 
-	// compute the actual racket pos,vel and normal
+	// compute the left hand and right hand effector positions
 	calc_cart_pos(data->basec, data->baseo, active_dofs,qf,pos_left,pos_right);
 
 	// deviations from the desired racket frame

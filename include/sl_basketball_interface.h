@@ -33,6 +33,7 @@ static void save_joint_data(const SL_Jstate joint_state[NDOF+1],
 static void save_cartesian_data(const SL_Jstate joint_state[NDOF+1],
 		                    const SL_DJstate joint_des_state[NDOF+1]);
 static void save_cartesian_data(const SL_Cstate robot_state[NENDEFF+1]);
+static void save_calibration_data(const SL_Jstate joint_state[NDOF+1], const blob_state *blobs);
 
 #endif
 

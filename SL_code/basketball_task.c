@@ -20,7 +20,8 @@ static double start_time;
 
 typedef struct {
 	int status; //!< was ball detected reliably in cameras
-	double pos[N_CART]; //!< ball center cartesian positions from cameras 1 and 2(after calibration)
+	double raw2d[4]; //!< raw 2D pixel values from the cameras
+	double pos[N_CART]; //!< ball center cartesian positions detected
 } blob_state;
 
 blob_state ball_obs;
@@ -66,11 +67,14 @@ static int update_ball_obs(void) {
 		}
 	}
 	else {
-		// TODO: Is it blobs[1] that gets the visual ball info?
 		ball_obs.status = blobs[1].status;
 		for (i = 0; i < 3; i++) {
 			ball_obs.pos[i] = blobs[1].blob.x[i+1];
 		}
+		ball_obs.raw2d[0] = raw_blobs2D[i][1].x[1];
+		ball_obs.raw2d[1] = raw_blobs2D[i][1].x[2];
+		ball_obs.raw2d[2] = raw_blobs2D[i][2].x[1];
+		ball_obs.raw2d[3] = raw_blobs2D[i][2].x[2];
 	}
 
 	return TRUE;

@@ -23,7 +23,9 @@ struct player_flags {
 	bool load_soln = false; //!< do not run optimization, load one solution vector and execute
 	bool detach = false; //!< detach optimizations in another thread
 	bool reset = true; //!< reinitializing player class
-	bool save = false; //!< saving ball/robot data
+	bool save_joint = false; //!< saving ball/robot data
+	bool save_cart = false; //!< saving cartesian data
+	bool save_calibration = false; //!< saving calibration data
 	bool touch = true; //!< touch if true or hit the ball with a desired velocity if false
 	int verbosity = 0; //!< OFF, LOW, HIGH, ALL
 	int min_obs = 5; //!< number of observations to initialize filter
