@@ -46,6 +46,7 @@ class Player {
 private:
 
 	// data fields
+	bool optimize = true;
 	bool init_ball_state = false;
 	vec q_rest_des = zeros<vec>(NDOF_ACTIVE); // desired resting joint state
 	EKF & filter; // filter for the ball estimation

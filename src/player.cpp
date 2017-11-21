@@ -47,7 +47,26 @@ using namespace arma;
 Player::Player(const vec & q0, EKF & filter_, player_flags & flags)
                : filter(filter_), pflags(flags) {
 
-	q_rest_des = q0;
+	//q_rest_des = q0;
+	q_rest_des(0) = 0.5;
+	q_rest_des(1) = 0.0;
+	q_rest_des(2) = 0.05;
+	q_rest_des(3) = 0.18;
+	q_rest_des(4) = 0.0;
+	q_rest_des(5) = -0.26;
+	q_rest_des(6) = -0.33;
+	q_rest_des(7) = 0.23;
+	q_rest_des(8) = 0.0;
+	q_rest_des(9) = 0.11;
+	q_rest_des(10) = 0.24;
+	q_rest_des(11) = 0.00;
+	q_rest_des(12) = 0.08;
+	q_rest_des(13) = 0.0;
+
+	if (pflags.load_soln) {
+		optimize = false;
+	}
+
 	observations = zeros<mat>(3,pflags.min_obs); // for initializing filter
 	times = zeros<vec>(pflags.min_obs); // for initializing filter
 	//load_lookup_table(lookup_table);
@@ -177,7 +196,7 @@ void Player::play(const joint & qact,const vec3 & ball_obs, joint & qdes) {
 
 	estimate_ball_state(ball_obs);
 
-	if (pflags.load_soln)
+	if (!optimize)
 		load_soln_from_file(qact);
 	else
 		optim_param(qact);
@@ -317,7 +336,6 @@ void Player::reset_filter(double var_model, double var_noise) {
  */
 void Player::load_soln_from_file(const joint & qact) {
 
-	static bool firsttime = true;
 	using namespace std;
 	static mat init_soln = zeros<mat>(5,NDOF_OPT);
 	static string homename = getenv("HOME");
@@ -327,12 +345,12 @@ void Player::load_soln_from_file(const joint & qact) {
 	static double T;
 	static double time2return = pflags.time2return;
 
-	if (firsttime) {
+	if (pflags.load_soln) {
 		init_soln.load(fullname);
 		qf = join_vert(init_soln.row(0).t(),init_soln.row(2).t());
 		qfdot = join_vert(init_soln.row(1).t(),init_soln.row(3).t());
 		T = init_soln(4,0);
-		firsttime = false;
+		pflags.load_soln = false;
 		qnow = qact.q;
 		qdnow = qact.qd;
 		poly.a.col(0) = 2.0 * (qnow - qf) / pow(T,3) + (qfdot + qdnow) / pow(T,2);

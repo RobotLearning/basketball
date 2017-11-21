@@ -90,10 +90,11 @@ static int init_basketball_task(void) {
 
 	load_options();
 
-	for (i = 1; i <= N_DOFS; i++) {
+	/*for (i = 1; i <= N_DOFS; i++) {
 		joint_des_state[i].th = joint_default_state[i].th;
 		//printf("default_state[%d] = %f\n", i, joint_default_state[i].th);
-	}
+	}*/
+	go0_wait();
 
 	get_int("Use simulated ball?", FALSE, &simulation);
 	if (simulation) {
