@@ -15,21 +15,33 @@ C = M(:,5:end)';
 Cbar = [C; ones(1,N)];
 
 % estimate with constrained nonlinear least squares
-%{
-x0 = rand(30,1);
+%%{
+M1 = 1000*ones(2,3);
+M2 = 1000*ones(2,3);
+o1 = -M1 * [0.05; 0.00; 0.5];% from camera 1 to robot base (origin)
+o2 = -M2 * [-0.05; 0.00; 0.5]; % from camera 2 to robot base
+theta = zeros(3,1); % Euler angles
+d = [0.2; 0.3; 0.0];
+%x0 = rand(24,1);
+x0 = [M1(:); M2(:); o1; o2; theta; d];
 fun = @(x) fit_calibration_matrix(Cbar,Rbar,x);
 options = LMFnlsq('default');
-options = LMFnlsq(options,'Display',1,'MaxIter',100);
+options = LMFnlsq(options,'Display',10,'MaxIter',1000);
 x = LMFnlsq(fun,x0,options);
-Mat = reshape(x,3,5);
+[M,D] = form_calibration_matrices(x);
+Mat = M*D;
 %}
-Mat = R / Cbar;
+% estimate with least squares
+%Mat = C / R;
+%Mat = R / Cbar;
 
 %% Check the estimation results for training
-Rest = Mat * Cbar;
+%Rest = Mat * Cbar;
+Rest = Mat \ Cbar;
+%Rest = Mat \ C;
 dt = 0.002;
 t = dt * (1:size(Rest,2));
-rms_train = sqrt((norm(Rest - R, 'fro')^2) / (size(Rest,2)))
+rms_train = sqrt((norm(Rest(1:3,:) - R, 'fro')^2) / (size(Rest,2)))
 
 figure('Name','Training data');
 subplot(3,1,1);
@@ -66,9 +78,11 @@ Rtest_bar = [Rtest; ones(1,Ntest)];
 Ctest = Mtest(:,5:end)';
 Ctest_bar = [Ctest ; ones(1,Ntest)];
 t_test = dt * (1:size(Ctest,2));
-Rest_test = Mat * Ctest_bar;
+%Rest_test = Mat * Ctest_bar;
+Rest_test = Mat \ Ctest_bar;
+%Rest_test = Mat \ Ctest;
 
-rms_test = sqrt((norm(Rest_test - Rtest, 'fro')^2) / size(Rtest,2))
+rms_test = sqrt((norm(Rest_test(1:3,:) - Rtest, 'fro')^2) / size(Rtest,2))
 
 figure('Name','Test data');
 subplot(3,1,1);
