@@ -1,0 +1,10 @@
+%% Function that is used to fit matrices in calibration
+
+% x are the parameters
+% y is the camera output
+function fit_calibration_matrix(y,data,x)
+
+n = 4;
+m1 = x(1:
+
+end
