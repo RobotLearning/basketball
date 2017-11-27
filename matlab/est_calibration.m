@@ -15,32 +15,21 @@ C = M(:,5:end)';
 Cbar = [C; ones(1,N)];
 
 % estimate with constrained nonlinear least squares
-m0 = rand(3,5);
-x0 = m0(:);
-fun = @(x) fit_calibration_matrix(R,Cbar,x);
+%{
+x0 = rand(30,1);
+fun = @(x) fit_calibration_matrix(Cbar,Rbar,x);
 options = LMFnlsq('default');
 options = LMFnlsq(options,'Display',1,'MaxIter',100);
 x = LMFnlsq(fun,x0,options);
 Mat = reshape(x,3,5);
+%}
+Mat = R / Cbar;
 
 %% Check the estimation results for training
 Rest = Mat * Cbar;
 dt = 0.002;
 t = dt * (1:size(Rest,2));
-% 
-% figure('Name','Training data');
-% subplot(2,2,1);
-% plot(t, Cest(1,:),'-b',t, C(1,:),'--r');
-% ylabel('Camera 1-X');
-% subplot(2,2,2);
-% plot(t, Cest(2,:),'-b',t, C(2,:),'--r');
-% ylabel('Camera 1-Y');
-% subplot(2,2,3);
-% plot(t, Cest(3,:),'-b',t, C(3,:),'--r');
-% ylabel('Camera 2-X');
-% subplot(2,2,4);
-% plot(t, Cest(4,:),'-b',t, C(4,:),'--r');
-% ylabel('Camera 2-Y');
+rms_train = sqrt((norm(Rest - R, 'fro')^2) / (size(Rest,2)))
 
 figure('Name','Training data');
 subplot(3,1,1);
@@ -53,16 +42,33 @@ subplot(3,1,3);
 plot(t, Rest(3,:),'-b',t, R(3,:),'--r');
 ylabel('Robot hand pose Z');
 
+%{
+figure('Name','Training data');
+subplot(2,2,1);
+plot(t, Cest(1,:),'-b',t, C(1,:),'--r');
+ylabel('Camera 1-X');
+subplot(2,2,2);
+plot(t, Cest(2,:),'-b',t, C(2,:),'--r');
+ylabel('Camera 1-Y');
+subplot(2,2,3);
+plot(t, Cest(3,:),'-b',t, C(3,:),'--r');
+ylabel('Camera 2-X');
+subplot(2,2,4);
+plot(t, Cest(4,:),'-b',t, C(4,:),'--r');
+ylabel('Camera 2-Y');
+%}
+
 %% Check results for test data
 Mtest = dlmread(test_file);
 Ntest = size(Mtest,1);
 Rtest = Mtest(:,2:4)';
-Rtest = [Rtest; ones(1,Ntest)];
+Rtest_bar = [Rtest; ones(1,Ntest)];
 Ctest = Mtest(:,5:end)';
 Ctest_bar = [Ctest ; ones(1,Ntest)];
 t_test = dt * (1:size(Ctest,2));
 Rest_test = Mat * Ctest_bar;
 
+rms_test = sqrt((norm(Rest_test - Rtest, 'fro')^2) / size(Rtest,2))
 
 figure('Name','Test data');
 subplot(3,1,1);
