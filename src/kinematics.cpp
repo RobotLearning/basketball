@@ -77,25 +77,18 @@ void calc_cart_pos(const vec3 & basec,
  * @brief Returns the cartesian endeffector positions (as vector) and orientations (as matrix).
  */
 void calc_cart_pos_and_orient(const vec3 & basec,
-		const vec4 & baseo, const uvec & active_dofs, const double q_active[],
+		const vec4 & baseo, const uvec & active_dofs, const double q_sl[],
 		vec3 & pos_left, vec3 & pos_right, mat33 & hom_mat_left, mat33 & hom_mat_right) {
 
 	static double link[NLINK+1][3+1];
 	static double origin[NDOF+1][3+1];
 	static double axis[NDOF+1][3+1];
 	static double amats[NDOF+1][4+1][4+1];
-	static vec q_default = zeros<vec>(NDOF);
 	static bool firsttime = true;
 	thread_local vec q = zeros<vec>(NDOF);
 
-	if (firsttime) {
-		read_default_state(q_default);
-		firsttime = false;
-	}
-
-	q = q_default;
-	for (int i = 0; i < active_dofs.n_elem; i++) {
-		q(active_dofs[i]) = q_active[i];
+	for (int i = 0; i < NDOF; i++) {
+		q(i) = q_sl[i];
 	}
 
 	kinematics(basec,baseo,q.memptr(),link,origin,axis,amats);
@@ -104,8 +97,8 @@ void calc_cart_pos_and_orient(const vec3 & basec,
 		pos_left(i) = link[L_HAND][i+1];
 		//normal[i] = amats[PALM][i+1][2];
 		for (int j = 0; j < NCART; j++) {
-			hom_mat_left(i,j) = amats[R_HAND][i+1][j+1];
-			hom_mat_right(i,j) = amats[L_HAND][i+1][j+1];
+			hom_mat_left(i,j) = amats[L_HAND][i+1][j+1];
+			hom_mat_right(i,j) = amats[R_HAND][i+1][j+1];
 		}
 	}
 }

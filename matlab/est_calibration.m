@@ -3,8 +3,9 @@
 % load the data
 clc; clear; close all;
 
-train_file = '~/basketball/data/blobs1.txt';
-test_file = '~/basketball/data/blobs2.txt';
+train_file = '~/basketball/data/blobs_tabletennis.txt';
+test_file = '~/basketball/data/blobs_tabletennis_2.txt';
+yellow_ball_file = '~/basketball/data/blobs_yellowball.txt';
 M = dlmread(train_file);
 N = size(M,1);
 % get the robot left arm cartesian endeffector positions
@@ -15,7 +16,7 @@ C = M(:,5:end)';
 Cbar = [C; ones(1,N)];
 
 % estimate with constrained nonlinear least squares
-%%{
+%{
 M1 = 1000*ones(2,3);
 M2 = 1000*ones(2,3);
 o1 = -M1 * [0.05; 0.00; 0.5];% from camera 1 to robot base (origin)
@@ -33,11 +34,11 @@ Mat = M*D;
 %}
 % estimate with least squares
 %Mat = C / R;
-%Mat = R / Cbar;
+Mat = R / Cbar;
 
 %% Check the estimation results for training
-%Rest = Mat * Cbar;
-Rest = Mat \ Cbar;
+Rest = Mat * Cbar;
+%Rest = Mat \ Cbar;
 %Rest = Mat \ C;
 dt = 0.002;
 t = dt * (1:size(Rest,2));
@@ -78,19 +79,31 @@ Rtest_bar = [Rtest; ones(1,Ntest)];
 Ctest = Mtest(:,5:end)';
 Ctest_bar = [Ctest ; ones(1,Ntest)];
 t_test = dt * (1:size(Ctest,2));
-%Rest_test = Mat * Ctest_bar;
-Rest_test = Mat \ Ctest_bar;
+Rest_test = Mat * Ctest_bar;
+%Rest_test = Mat \ Ctest_bar;
 %Rest_test = Mat \ Ctest;
 
 rms_test = sqrt((norm(Rest_test(1:3,:) - Rtest, 'fro')^2) / size(Rtest,2))
 
-figure('Name','Test data');
+Mtest2 = dlmread(yellow_ball_file);
+Ntest2 = size(Mtest2,1);
+Cyellow_test = Mtest2(:,5:end)';
+Cyellow_test_bar = [Cyellow_test; ones(1,Ntest2)];
+Ytest = Mat * Cyellow_test_bar;
+t_test_yellow = dt * (1:Ntest2);
+figure('Name','Test data - yellow ball');
 subplot(3,1,1);
-plot(t_test, Rtest(1,:),'-b',t_test, Rest_test(1,:),'--r');
-ylabel('Robot hand pose X');
+plot(t_test_yellow, Ytest(1,:),'-b');
+ylabel('Yellow ball X');
 subplot(3,1,2);
-plot(t_test, Rtest(2,:),'-b',t_test, Rest_test(2,:),'--r');
-ylabel('Robot hand pose Y');
+plot(t_test_yellow, Ytest(2,:),'-b');
+ylabel('Yellow ball Y');
 subplot(3,1,3);
-plot(t_test, Rtest(3,:),'-b',t_test, Rest_test(3,:),'--r');
-ylabel('Robot hand pose Z');
+plot(t_test_yellow, Ytest(3,:),'-b');
+ylabel('Yellow ball Z');
+
+figure('Name','Test data - yellow ball cartesian');
+plot3(Ytest(1,:),Ytest(2,:),Ytest(3,:));
+xlabel('x'); ylabel('y'); zlabel('z');
+axis equal;
+grid on;

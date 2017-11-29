@@ -134,10 +134,10 @@ void attach_ball_endeffector(const SL_Jstate joint_state[NDOF+1], double ball_da
 	const double dist_ball_to_endeff = 0.045;
 	static vec3 pos_left, pos_right;
 	static mat33 mat_left, mat_right;
-	static vec joint_act_pos = zeros<vec>(NDOF_ACTIVE);
+	static vec joint_act_pos = zeros<vec>(NDOF);
 
-	for (int i = 0; i < NDOF_ACTIVE; i++) {
-		joint_act_pos(i) = joint_state[active_dofs(i)+1].th;
+	for (int i = 0; i < NDOF; i++) {
+		joint_act_pos(i) = joint_state[i+1].th;
 	}
 
 	// get cartesian position and orientation of the endeffector

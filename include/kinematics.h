@@ -98,7 +98,7 @@ using namespace arma;
 void calc_cart_pos(const vec3 & basec,
 		const vec4 & baseo, const uvec & active_dofs, const double q_active[], vec & pos_left, vec & pos_right);
 void calc_cart_pos_and_orient(const vec3 & basec,
-		const vec4 & baseo, const uvec & active_dofs, const double q_active[],
+		const vec4 & baseo, const uvec & active_dofs, const double q_sl[],
 		vec3 & pos_left, vec3 & pos_right, mat33 & hom_mat_left, mat33 & hom_mat_right);
 void calc_cart_pos_and_vel(const vec3 & basec,
 		const vec4 & baseo, const uvec & active_dofs, const double q_active[], const double qdot_active[],
