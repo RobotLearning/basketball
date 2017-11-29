@@ -54,7 +54,8 @@
 #define ZHEEL         0.0512
 
 // hands length
-#define XHAND		0.136
+#define XHAND		0.0 //0.136
+#define THETA_HAND  -PI/2.0
 
 /* special dimensions of neck arrangement */
 #define NECK_A 0.0508 //Ludo 0.0606   /*! the distance between the base hinges of the linear neck actuators */
@@ -96,6 +97,9 @@ using namespace arma;
 // kinematics functions from SL
 void calc_cart_pos(const vec3 & basec,
 		const vec4 & baseo, const uvec & active_dofs, const double q_active[], vec & pos_left, vec & pos_right);
+void calc_cart_pos_and_orient(const vec3 & basec,
+		const vec4 & baseo, const uvec & active_dofs, const double q_active[],
+		vec3 & pos_left, vec3 & pos_right, mat33 & hom_mat_left, mat33 & hom_mat_right);
 void calc_cart_pos_and_vel(const vec3 & basec,
 		const vec4 & baseo, const uvec & active_dofs, const double q_active[], const double qdot_active[],
 		                   vec3 & pos_left, vec3 & pos_right, vec3 & vel_left, vec3 & vel_right);

@@ -124,6 +124,35 @@ void load_options() {
 }
 
 /**
+ * @brief Attach ball to the LEFT endeffector, useful for CALIBRATION.
+ *
+ * Sends the 3D positions and the radius of a ball to be attached.
+ */
+void attach_ball_endeffector(const SL_Jstate joint_state[NDOF+1], double ball_data[NCART+1]) {
+
+	const int axis = 2;
+	const double dist_ball_to_endeff = 0.045;
+	static vec3 pos_left, pos_right;
+	static mat33 mat_left, mat_right;
+	static vec joint_act_pos = zeros<vec>(NDOF_ACTIVE);
+
+	for (int i = 0; i < NDOF_ACTIVE; i++) {
+		joint_act_pos(i) = joint_state[active_dofs(i)+1].th;
+	}
+
+	// get cartesian position and orientation of the endeffector
+	// add three centimeters above the wrist
+	calc_cart_pos_and_orient(options.basec,options.baseo,active_dofs, joint_act_pos.memptr(),
+			                 pos_left, pos_right, mat_left, mat_right);
+
+	ball_data[0] = 0.02; // table tennis ball radius
+	ball_data[1] = pos_left(0) + dist_ball_to_endeff * mat_left(0,axis);
+	ball_data[2] = pos_left(1) + dist_ball_to_endeff * mat_left(1,axis);
+	ball_data[3] = pos_left(2) + dist_ball_to_endeff * mat_left(2,axis);
+
+}
+
+/**
  * @brief Update base cartesian positions and orientations.
  *
  * In simulation, the robot is rocking to and fro, hence to get accurate kinematics
@@ -316,6 +345,8 @@ static void save_calibration_data(const SL_Jstate joint_state[NDOF+1], const blo
 	static const std::string blob_file = home + "/basketball/data/blobs.txt";
 	static vec joint_act_pos = zeros<vec>(NDOF_ACTIVE);
 	static vec joint_act_vel = zeros<vec>(NDOF_ACTIVE);
+	static double ball_data[4];
+	static vec3 ball_vec;
 	static vec3 pos_left, pos_right;
 	static bool firsttime = true;
 	vec4 blob_vec(blobs->raw2d);
@@ -330,14 +361,19 @@ static void save_calibration_data(const SL_Jstate joint_state[NDOF+1], const blo
 		joint_act_vel(i) = joint_state[active_dofs(i)+1].thd;
 
 	}
-	calc_cart_pos(options.basec,options.baseo,active_dofs, joint_act_pos.memptr(), pos_left, pos_right);
+	//calc_cart_pos(options.basec,options.baseo,active_dofs, joint_act_pos.memptr(), pos_left, pos_right);
+	attach_ball_endeffector(joint_state, ball_data);
 
 	if (options.save_calibration && norm(joint_act_vel) > 0.0) {
 		if (!stream.is_open()) {
 			stream.open(blob_file,std::ofstream::out | std::ofstream::app);
 		}
+		for (int i = 0; i < NCART; i++) {
+			ball_vec(i) = ball_data[i+1];
+		}
 		stream << blobs->status;
-		stream << join_horiz(pos_left.t(), blob_vec.t());
+		//stream << join_horiz(pos_left.t(), blob_vec.t());
+		stream << join_horiz(ball_vec.t(), blob_vec.t());
 	}
 	else {
 		stream.close();
