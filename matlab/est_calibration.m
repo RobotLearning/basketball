@@ -4,8 +4,8 @@
 clc; clear; close all;
 
 train_file = '~/basketball/data/blobs_tabletennis.txt';
-test_file = '~/basketball/data/blobs_tabletennis_2.txt';
-yellow_ball_file = '~/basketball/data/blobs_yellowball.txt';
+test_file = '~/basketball/data/blobs_tabletennis_3.txt';
+yellow_ball_file = '~/basketball/data/blobs_yellowball.txt'; %'~/basketball/data/blobs_tabletennis_notattached.txt'; %
 M = dlmread(train_file);
 N = size(M,1);
 % get the robot left arm cartesian endeffector positions
@@ -85,25 +85,38 @@ Rest_test = Mat * Ctest_bar;
 
 rms_test = sqrt((norm(Rest_test(1:3,:) - Rtest, 'fro')^2) / size(Rtest,2))
 
+figure('Name','Test data');
+subplot(3,1,1);
+plot(t_test, Rest_test(1,:),'-b', t_test, Rtest(1,:), '--r');
+ylabel('Robot hand pose X');
+subplot(3,1,2);
+plot(t_test, Rest_test(2,:),'-b', t_test, Rtest(2,:), '--r');
+ylabel('Robot hand pose Y');
+subplot(3,1,3);
+plot(t_test, Rest_test(3,:),'-b', t_test, Rtest(3,:), '--r');
+ylabel('Robot hand pose Z');
+
+%% Compare with yellow ball data
 Mtest2 = dlmread(yellow_ball_file);
-Ntest2 = size(Mtest2,1);
+N_test_yellow = size(Mtest2,1); %1000
 Cyellow_test = Mtest2(:,5:end)';
-Cyellow_test_bar = [Cyellow_test; ones(1,Ntest2)];
+Cyellow_test_bar = [Cyellow_test; ones(1,size(Cyellow_test,2))];
 Ytest = Mat * Cyellow_test_bar;
-t_test_yellow = dt * (1:Ntest2);
+t_test_yellow = dt * (1:N_test_yellow);
 figure('Name','Test data - yellow ball');
 subplot(3,1,1);
-plot(t_test_yellow, Ytest(1,:),'-b');
+plot(t_test_yellow, Ytest(1,1:N_test_yellow),'-b');
 ylabel('Yellow ball X');
 subplot(3,1,2);
-plot(t_test_yellow, Ytest(2,:),'-b');
+plot(t_test_yellow, Ytest(2,1:N_test_yellow),'-b');
 ylabel('Yellow ball Y');
 subplot(3,1,3);
-plot(t_test_yellow, Ytest(3,:),'-b');
+plot(t_test_yellow, Ytest(3,1:N_test_yellow),'-b');
 ylabel('Yellow ball Z');
 
+
 figure('Name','Test data - yellow ball cartesian');
-plot3(Ytest(1,:),Ytest(2,:),Ytest(3,:));
+plot3(Ytest(1,1:N_test_yellow),Ytest(2,1:N_test_yellow),Ytest(3,1:N_test_yellow));
 xlabel('x'); ylabel('y'); zlabel('z');
 axis equal;
 grid on;
